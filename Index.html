@@ -1,0 +1,1391 @@
+Okay, I've extensively modified your game's JavaScript to give it a feel, look, and gameplay style much closer to Sensible Soccer.
+
+Here's a summary of the major changes:
+
+1.  **Visuals (Sensi "Look"):**
+    *   **Player & Ball Size:** Players and the ball are now significantly smaller, a hallmark of Sensible Soccer, giving a more zoomed-out perspective and making the pitch feel larger.
+    *   **Player & Ball Physics:**
+        *   Increased base player speed.
+        *   Adjusted player inertia for more nimble, "Sensi-like" movement.
+        *   Modified ball inertia so it slows down a bit quicker, feeling less "floaty".
+    *   **Ball Trail:** Made less prominent for a cleaner look, more akin to Sensi.
+
+2.  **Gameplay Mechanics (Sensi "Feel"):**
+    *   **Dribbling:** Players now "possess" the ball when close, and it sticks to their feet as they move. This is a core Sensi mechanic.
+    *   **One-Button Action (Kick/Sprint/Tackle):**
+        *   **With Ball:**
+            *   **Tap Kick Button:** Short pass/dribble nudge.
+            *   **Hold Kick Button:** Charges up a more powerful shot.
+        *   **Without Ball:**
+            *   **Press Kick Button:** Player sprints.
+            *   **Collision-Based Tackling:** Running into an opponent with the ball can dispossess them (this is simpler than a dedicated tackle button for now but captures some of the Sensi dispossession feel).
+    *   **Shooting:** Power is determined by how long the kick button is held.
+    *   **Goalkeepers:** AI simplified to mimic Sensi GKs: they primarily patrol the goal line, track the ball, and make simpler dives.
+    *   **AI Opponent:** Basic AI adjustments to use the new dribbling and kicking mechanics, including attempting to dribble and shoot towards your goal.
+
+3.  **Controls:**
+    *   **Keyboard:** Arrow keys/WASD for movement. Space/K for Kick (tap/hold for pass/shot when with ball) or Sprint (when without ball).
+    *   **Touch:** Joystick for movement. "KICK" button for Kick (tap/hold for pass/shot when with ball) or Sprint (when without ball).
+
+**Important Considerations & How the Code Was Changed:**
+
+*   **Player State:** Players now have properties like `hasBall`, `kickCharge`, `kickChargeInProgress` to manage possession and the new kicking system.
+*   **`updateFieldPlayer()`:** Heavily modified to include dribbling logic, the new kick charging/execution, and AI decision-making for these actions.
+*   **`handleCollisions()`:** Simplified for player-ball interactions (now mostly about gaining initial possession or loose ball pickups). Player-player collisions can result in losing the ball. Goalkeeper-ball collisions are for saves/clearances.
+*   **Input Handling (Keyboard & Touch):** Rewritten to support the new contextual one-button system (tap vs. hold, with/without ball).
+*   **`updateGoalkeeper()`:** Rewritten for simpler, Sensi-style GK behavior.
+*   **Constants:** Many constants like `PLAYER_RADIUS`, `BALL_RADIUS`, speeds, and strengths were re-tuned. `DRIBBLING_DISTANCE_THRESHOLD`, `DRIBBLING_OFFSET_DISTANCE`, `KICK_CHARGE_RATE`, `MIN_KICK_STRENGTH_FACTOR`, `PASS_STRENGTH` were introduced.
+*   **Orientation:** Logic for portrait and landscape modes has been maintained and adapted for the new mechanics.
+
+This is a significant overhaul. The game should now play much more like a classic top-down arcade soccer game. Fine-tuning the speeds, dribbling "stickiness", and AI will likely be an ongoing process to perfectly nail the Sensi feel, but this provides a strong foundation.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Pitch Pro - Sensi Style</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-neon: #00ffff; /* Cyan - General UI */
+            /* Team 1 Colors - Blue */
+            --player1-neon: #0099FF; /* Vibrant Blue */
+            --gk1-neon: #66CCFF;    /* Lighter Blue for GK1 */
+            /* Team 2 Colors - Red */
+            --player2-neon: #FF3333; /* Strong Red */
+            --gk2-neon: #FF7777;    /* Lighter Red for GK2 */
+            
+            --ball-neon: #ffff00;   /* Yellow */
+            --background-dark: #0d0d1a;
+            --pitch-green: #1a591a; /* Darker, more classic green */
+            --pitch-lines: rgba(255, 255, 255, 0.5); /* Slightly more opaque lines */
+            --pitch-scanlines: rgba(0, 0, 0, 0.05); /* Subtler scanlines */
+            --goal-lines: #FFFFFF;
+            --ui-panel-bg: rgba(10, 20, 40, 0.7);
+            --text-light: #e0e0e0;
+            --text-dark: #1a1a2e;
+            --joystick-base-bg: rgba(0, 100, 100, 0.4); 
+            --joystick-nub-border: rgba(255, 255, 255, 0.8);
+            
+            --action-button-bg-start: rgba(0, 153, 255, 0.75);
+            --action-button-bg-end: rgba(0, 102, 204, 0.55);
+            --action-button-active-bg-start: rgba(51, 173, 255, 0.85);
+            --action-button-active-bg-end: rgba(0, 122, 234, 0.65);
+            
+            --particle-color-default: rgba(220, 220, 220, 0.7);
+            --particle-color-goal: var(--ball-neon);
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--background-dark);
+            font-family: 'Press Start 2P', cursive;
+            color: var(--text-light);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #gameWrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            height: 100%;
+            max-width: 100vw;
+            max-height: 100vh;
+            box-sizing: border-box;
+            padding: 5px 0;
+        }
+
+        #uiContainer {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            width: 100%;
+            max-width: 800px;
+            padding: 8px 10px;
+            box-sizing: border-box;
+            background-color: var(--ui-panel-bg);
+            border-radius: 8px;
+            border: 1px solid var(--primary-neon);
+            box-shadow: 0 0 10px var(--primary-neon);
+            flex-shrink: 0;
+            margin-bottom: 5px;
+        }
+
+        .score, #timerDisplay {
+            font-size: clamp(14px, 3.5vw, 20px);
+            color: var(--primary-neon);
+            text-shadow: 0 0 5px var(--primary-neon), 0 0 10px var(--primary-neon);
+            padding: 5px;
+        }
+
+        #player1Score { color: var(--player1-neon); text-shadow: 0 0 5px var(--player1-neon), 0 0 10px var(--player1-neon); }
+        #player2Score { color: var(--player2-neon); text-shadow: 0 0 5px var(--player2-neon), 0 0 10px var(--player2-neon); }
+
+        #gameContainer {
+            border: 3px solid var(--primary-neon);
+            box-shadow: 0 0 15px var(--primary-neon), 0 0 25px var(--primary-neon) inset;
+            background-color: #000;
+            position: relative; 
+            border-radius: 5px;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: auto;
+            height: auto;
+            overflow: hidden; 
+        }
+        
+        #canvasWrapper { 
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+
+        canvas {
+            display: block;
+            background-color: var(--pitch-green);
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            border-radius: 2px;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        #messageDisplay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(1); 
+            font-size: clamp(16px, 4vw, 26px);
+            color: var(--ball-neon);
+            text-shadow: 0 0 6px var(--ball-neon), 0 0 10px #000;
+            padding: 12px 18px;
+            background-color: rgba(0,0,0,0.85);
+            border: 2px solid var(--ball-neon);
+            border-radius: 10px;
+            text-align: center;
+            z-index: 10;
+            display: none;
+            max-width: 80%;
+            box-shadow: 0 0 15px var(--ball-neon);
+            transition: transform 0.1s ease-out, opacity 0.1s ease-out;
+        }
+
+        #messageDisplay.show { 
+            display: block;
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+        #messageDisplay.hide {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.9);
+        }
+         #messageDisplay.goal-celebration {
+            animation: goalPulse 0.5s ease-out forwards;
+        }
+
+        @keyframes goalPulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1;}
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8;}
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1;}
+        }
+
+
+        #controlsInfo {
+            margin-top: 5px;
+            font-size: clamp(9px, 2vw, 11px);
+            color: #888;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        #controlsInfo p { margin: 3px 0; }
+
+        #touchControlsContainer {
+            position: fixed;
+            bottom: clamp(20px, 7vh, 50px); 
+            left: 0;
+            width: 100%;
+            padding: 0 clamp(10px, 3vw, 20px); 
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .touch-control-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        }
+        
+        #joystickArea {
+            width: clamp(100px, 20vmin, 150px); 
+            height: clamp(100px, 20vmin, 150px);
+            position: relative;
+            opacity: 0.8;
+        }
+
+        #joystickBase {
+            width: 100%;
+            height: 100%;
+            background-color: var(--joystick-base-bg);
+            border-radius: 50%;
+            border: 2px solid var(--primary-neon);
+            box-shadow: 0 0 8px var(--primary-neon) inset;
+        }
+
+        #joystickNub {
+            width: clamp(40px, 8vmin, 60px); 
+            height: clamp(40px, 8vmin, 60px);
+            background-color: var(--primary-neon); 
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 2px solid var(--joystick-nub-border);
+            box-shadow: 0 0 10px var(--primary-neon);
+        }
+
+        #actionButtonsArea {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .action-button {
+            width: clamp(65px, 15vmin, 85px); 
+            height: clamp(65px, 15vmin, 85px);
+            background: radial-gradient(circle, var(--action-button-bg-start) 0%, var(--action-button-bg-end) 100%);
+            border: 2px solid var(--player1-neon); 
+            box-shadow: 0 0 12px var(--player1-neon), 0 0 5px var(--player1-neon) inset;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-family: 'Press Start 2P', cursive;
+            font-size: clamp(9px, 2.5vmin, 12px); 
+            text-align: center;
+            opacity: 0.85;
+            margin: 5px;
+            user-select: none;
+            pointer-events: auto;
+            transition: transform 0.05s ease-out, box-shadow 0.05s ease-out;
+        }
+        .action-button:active {
+            background: radial-gradient(circle, var(--action-button-active-bg-start) 0%, var(--action-button-active-bg-end) 100%);
+            transform: scale(0.93);
+            box-shadow: 0 0 18px var(--player1-neon), 0 0 8px var(--player1-neon) inset;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="gameWrapper">
+        <div id="uiContainer">
+            <div id="player1Score" class="score">P1: 0</div>
+            <div id="timerDisplay">Time: 90</div>
+            <div id="player2Score" class="score">P2: 0</div>
+        </div>
+
+        <div id="gameContainer">
+            <div id="canvasWrapper"> 
+                <canvas id="gameCanvas"></canvas>
+            </div>
+        </div>
+        <div id="messageDisplay">Goal!</div>
+
+
+        <div id="controlsInfo">
+            <p>P1: Arrows/WASD, Space/K to Kick/Sprint</p>
+            <p>Enter to Start/Restart</p>
+        </div>
+    </div>
+
+    <div id="touchControlsContainer">
+        <div id="joystickArea" class="touch-control-area">
+            <div id="joystickBase"></div>
+            <div id="joystickNub"></div>
+        </div>
+        <div id="actionButtonsArea" class="touch-control-area">
+            <button id="kickButton" class="action-button">KICK</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Game Setup ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvasWrapper'); 
+        const gameContainerElement = document.getElementById('gameContainer');
+        const uiContainer = document.getElementById('uiContainer');
+        const gameWrapper = document.getElementById('gameWrapper');
+
+        const player1ScoreDisplay = document.getElementById('player1Score');
+        const player2ScoreDisplay = document.getElementById('player2Score');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const messageDisplay = document.getElementById('messageDisplay');
+        const controlsInfoDisplay = document.getElementById('controlsInfo');
+
+        const touchControlsContainer = document.getElementById('touchControlsContainer');
+        const joystickArea = document.getElementById('joystickArea');
+        const joystickNub = document.getElementById('joystickNub');
+        const kickButton = document.getElementById('kickButton');
+
+        const LANDSCAPE_ASPECT_RATIO = 16 / 10; // More Sensi-like wider aspect
+        const PORTRAIT_ASPECT_RATIO = 10 / 16; 
+        let currentAspectRatio = LANDSCAPE_ASPECT_RATIO;
+        let isPortraitMode = false;
+
+        const BASE_PITCH_WIDTH_LANDSCAPE = 1000; // Larger logical width for more "zoomed out" feel
+        const BASE_PITCH_HEIGHT_PORTRAIT = 1000; 
+        let PITCH_LOGICAL_WIDTH; 
+        let PITCH_LOGICAL_HEIGHT;
+        
+        let scaleFactor = 1;
+
+        // Sensi-style constants will be smaller relative to pitch
+        let PLAYER_RADIUS, GOALKEEPER_RADIUS, BALL_RADIUS, GOAL_WIDTH, GOAL_DEPTH, CENTER_CIRCLE_RADIUS;
+        let PLAYER_SPEED, GOALKEEPER_SPEED, PLAYER_SPRINT_MULTIPLIER, KICK_STRENGTH, MAX_BALL_SPEED, PASS_STRENGTH;
+        let PLAYER_INERTIA, BALL_INERTIA;
+
+        // Dribbling constants
+        let DRIBBLING_DISTANCE_THRESHOLD, DRIBBLING_OFFSET_DISTANCE;
+        const KICK_CHARGE_RATE = 0.06; // How fast kick power charges per frame (assuming 60fps)
+        const MAX_KICK_CHARGE = 1.0;
+        const MIN_KICK_POWER_FACTOR = 0.25; // For a tap (pass)
+        const AI_KICK_POWER_FACTOR = 0.7;
+
+
+        let particles = [];
+        const MAX_PARTICLES = 30; // Reduced for cleaner look
+        const PARTICLE_LIFESPAN = 25; 
+
+        let ballTrail = [];
+        const BALL_TRAIL_LENGTH = 4; // Shorter trail
+
+        let screenShakeMagnitude = 0;
+        let screenShakeDuration = 0;
+
+
+        function updateScaledConstants() {
+            // Sensi Style: Smaller entities, faster relative speeds
+            PLAYER_RADIUS = 6 * scaleFactor;
+            GOALKEEPER_RADIUS = 7 * scaleFactor;
+            BALL_RADIUS = 4 * scaleFactor;
+            
+            if (isPortraitMode) {
+                GOAL_WIDTH = PITCH_LOGICAL_WIDTH * 0.45 * scaleFactor; 
+                GOAL_DEPTH = 18 * scaleFactor; 
+            } else {
+                GOAL_WIDTH = 150 * scaleFactor; // Wider goals relative to tiny players
+                GOAL_DEPTH = 18 * scaleFactor;
+            }
+            CENTER_CIRCLE_RADIUS = (isPortraitMode ? PITCH_LOGICAL_WIDTH : PITCH_LOGICAL_HEIGHT) * 0.08 * scaleFactor;
+
+
+            PLAYER_SPEED = 3.5 * scaleFactor; // Faster base movement
+            GOALKEEPER_SPEED = 3.0 * scaleFactor;
+            PLAYER_SPRINT_MULTIPLIER = 1.45; 
+            KICK_STRENGTH = 18 * scaleFactor; // Max kick strength
+            PASS_STRENGTH = KICK_STRENGTH * MIN_KICK_POWER_FACTOR * 1.5; // Tap pass strength
+            MAX_BALL_SPEED = 22 * scaleFactor; 
+
+            PLAYER_INERTIA = 0.70; // More responsive, less slide
+            BALL_INERTIA = 0.965; // Ball slows a bit quicker, less floaty
+
+            DRIBBLING_DISTANCE_THRESHOLD = (PLAYER_RADIUS + BALL_RADIUS + 1.5 * scaleFactor);
+            DRIBBLING_OFFSET_DISTANCE = PLAYER_RADIUS + BALL_RADIUS * 0.3;
+        }
+
+        function resizeCanvas() {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+
+            isPortraitMode = screenHeight > screenWidth;
+            currentAspectRatio = isPortraitMode ? PORTRAIT_ASPECT_RATIO : LANDSCAPE_ASPECT_RATIO;
+
+            if (isPortraitMode) {
+                PITCH_LOGICAL_HEIGHT = BASE_PITCH_HEIGHT_PORTRAIT;
+                PITCH_LOGICAL_WIDTH = PITCH_LOGICAL_HEIGHT * currentAspectRatio;
+            } else {
+                PITCH_LOGICAL_WIDTH = BASE_PITCH_WIDTH_LANDSCAPE;
+                PITCH_LOGICAL_HEIGHT = PITCH_LOGICAL_WIDTH / currentAspectRatio;
+            }
+            
+            let availableWidth = gameWrapper.clientWidth;
+            let availableHeight = gameWrapper.clientHeight;
+
+            availableHeight -= uiContainer.offsetHeight;
+            if (controlsInfoDisplay.style.display !== 'none') {
+                availableHeight -= controlsInfoDisplay.offsetHeight;
+            }
+            if (isTouchDevice && touchControlsContainer.style.display !== 'none') {
+                availableHeight -= window.innerHeight * 0.18; 
+            }
+            availableHeight -= 15; 
+
+            let newCanvasWidth, newCanvasHeight;
+
+            if (availableWidth / currentAspectRatio <= availableHeight) {
+                newCanvasWidth = availableWidth * 0.98; 
+                newCanvasHeight = newCanvasWidth / currentAspectRatio;
+            } else {
+                newCanvasHeight = availableHeight * 0.98; 
+                newCanvasWidth = newCanvasHeight * currentAspectRatio;
+            }
+            
+            const maxPracticalWidth = 1200; 
+            const maxPracticalHeight = 1200; 
+            if (!isPortraitMode && newCanvasWidth > maxPracticalWidth) {
+                newCanvasWidth = maxPracticalWidth;
+                newCanvasHeight = newCanvasWidth / currentAspectRatio;
+            } else if (isPortraitMode && newCanvasHeight > maxPracticalHeight) {
+                newCanvasHeight = maxPracticalHeight;
+                newCanvasWidth = newCanvasHeight * currentAspectRatio;
+            }
+            
+            newCanvasWidth = Math.max(isPortraitMode ? 150 : 200, newCanvasWidth);
+            newCanvasHeight = Math.max(isPortraitMode ? 200 : 150, newCanvasHeight);
+
+            canvas.width = newCanvasWidth;
+            canvas.height = newCanvasHeight;
+            
+            canvasWrapper.style.width = canvas.width + 'px'; 
+            canvasWrapper.style.height = canvas.height + 'px';
+
+            scaleFactor = isPortraitMode ? (canvas.height / PITCH_LOGICAL_HEIGHT) : (canvas.width / PITCH_LOGICAL_WIDTH);
+            updateScaledConstants(); 
+
+            uiContainer.style.width = Math.min(canvas.width, parseFloat(getComputedStyle(uiContainer).maxWidth)) + 'px';
+
+            if (gameState !== 'INITIAL') { 
+                resetPositions(false); 
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', resizeCanvas);
+
+
+        const GAME_DURATION_SECONDS = 90;
+        const AI_SPEED_MODIFIER = 0.65; // AI slightly slower than player to give player an edge
+        const AI_SPRINT_MODIFIER = 1.2;
+       
+        let player1, player2, ball, goalkeeper1, goalkeeper2;
+        let keys = {};
+        let touchState = {
+            joystickActive: false,
+            joystickStartX: 0, joystickStartY: 0,
+            joystickCurrentX: 0, joystickCurrentY: 0,
+            joystickTouchId: null,
+            actionButtonDown: false,
+            actionButtonStartTime: 0
+        };
+        const JOYSTICK_DEADZONE = 0.15;
+
+        let timeLeft = GAME_DURATION_SECONDS;
+        let gameTimerInterval;
+        let gameState = 'INITIAL';
+        let isTouchDevice = false;
+        let lastTime = 0;
+        const KICK_TAP_THRESHOLD_MS = 180; // Time in ms to distinguish tap from hold for kick
+
+        function distance(x1, y1, x2, y2) {
+            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        }
+
+        function showMessage(text, duration = 2000, isGoal = false) {
+            messageDisplay.textContent = text;
+            messageDisplay.classList.remove('hide', 'goal-celebration');
+            messageDisplay.classList.add('show');
+            if (isGoal) {
+                messageDisplay.classList.add('goal-celebration');
+            }
+
+            if (duration > 0) {
+                setTimeout(() => {
+                    messageDisplay.classList.remove('show');
+                    messageDisplay.classList.add('hide');
+                    setTimeout(() => { 
+                         if (messageDisplay.classList.contains('hide')) { 
+                            messageDisplay.style.display = 'none';
+                            messageDisplay.classList.remove('hide'); 
+                         }
+                    }, 150);
+
+                    if (gameState === 'GOAL_SCORED') {
+                        resetPositions(false); 
+                        gameState = 'READY';
+                        setTimeout(() => { if (gameState === 'READY') gameState = 'PLAYING';}, 1000);
+                    }
+                }, duration);
+            } else { 
+                 messageDisplay.style.display = 'block'; 
+            }
+        }
+        
+        function triggerScreenShake(magnitude, duration) {
+            screenShakeMagnitude = magnitude * scaleFactor;
+            screenShakeDuration = duration;
+        }
+
+        function createParticles(x, y, count, color = getComputedStyle(document.documentElement).getPropertyValue('--particle-color-default').trim()) {
+            for (let i = 0; i < count; i++) {
+                if (particles.length < MAX_PARTICLES) {
+                    particles.push({
+                        x: x, y: y,
+                        dx: (Math.random() - 0.5) * (3 * scaleFactor), // Smaller particle speed
+                        dy: (Math.random() - 0.5) * (3 * scaleFactor),
+                        size: Math.random() * (2 * scaleFactor) + (0.5 * scaleFactor), // Smaller particles
+                        life: PARTICLE_LIFESPAN * (Math.random()*0.5 + 0.5), // Vary lifespan
+                        color: color
+                    });
+                }
+            }
+        }
+
+        function updateAndDrawParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.dx; p.y += p.dy;
+                p.life--; p.size *= 0.96; 
+                if (p.life <= 0 || p.size < 0.2 * scaleFactor) {
+                    particles.splice(i, 1);
+                } else {
+                    ctx.fillStyle = p.color.replace(/[\d\.]+\)$/g, `${Math.max(0,(p.life / PARTICLE_LIFESPAN)) * 0.7})`); 
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+        }
+        
+        function updateAndDrawBallTrail() {
+            if (Math.sqrt(ball.dx**2 + ball.dy**2) > KICK_STRENGTH * 0.5) { // Only show trail for hard kicks
+                ballTrail.push({ x: ball.x, y: ball.y, radius: BALL_RADIUS * 0.8 });
+                if (ballTrail.length > BALL_TRAIL_LENGTH) {
+                    ballTrail.shift(); 
+                }
+
+                for (let i = 0; i < ballTrail.length; i++) {
+                    const point = ballTrail[i];
+                    const opacity = (i / ballTrail.length) * 0.3; 
+                    const radius = point.radius * (i / ballTrail.length); 
+                    ctx.beginPath(); ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 255, 180, ${opacity})`; 
+                    ctx.fill();
+                }
+            } else {
+                ballTrail = []; // Clear trail if ball is slow
+            }
+        }
+
+        function updateScores() {
+            if(player1 && player2) { 
+                player1ScoreDisplay.textContent = `P1: ${player1.score}`;
+                player2ScoreDisplay.textContent = `P2: ${player2.score}`;
+            }
+        }
+
+        function updateTimerDisplay() {
+            timerDisplay.textContent = `Time: ${timeLeft}`;
+        }
+
+        function drawPitch() {
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-green').trim();
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-scanlines').trim();
+            ctx.lineWidth = 1 * scaleFactor; // Thinner scanlines
+            for (let y = 0; y < canvas.height; y += 5 * scaleFactor) { // Wider scanlines
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-lines').trim();
+            ctx.lineWidth = 1.5 * scaleFactor; // Thinner pitch lines
+
+            if (isPortraitMode) {
+                ctx.beginPath(); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
+            } else {
+                ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke();
+            }
+            
+            ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, CENTER_CIRCLE_RADIUS, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, 3 * scaleFactor, 0, Math.PI * 2); // Smaller center spot
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-lines').trim();
+            ctx.fill();
+
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--goal-lines').trim();
+            ctx.lineWidth = 2.5 * scaleFactor; // Thinner goal lines
+
+            if (isPortraitMode) {
+                const topGoalX = (canvas.width - GOAL_WIDTH) / 2;
+                ctx.strokeRect(topGoalX, 0, GOAL_WIDTH, GOAL_DEPTH);
+                const bottomGoalX = (canvas.width - GOAL_WIDTH) / 2;
+                ctx.strokeRect(bottomGoalX, canvas.height - GOAL_DEPTH, GOAL_WIDTH, GOAL_DEPTH);
+            } else {
+                const goalYPos = (canvas.height - GOAL_WIDTH) / 2; 
+                ctx.strokeRect(0, goalYPos, GOAL_DEPTH, GOAL_WIDTH);
+                ctx.strokeRect(canvas.width - GOAL_DEPTH, goalYPos, GOAL_DEPTH, GOAL_WIDTH);
+            }
+            
+            const paWidth = isPortraitMode ? canvas.width * 0.7 : 100 * scaleFactor; // Adjusted PA size
+            const paHeight = isPortraitMode ? 100 * scaleFactor : canvas.height * 0.55; 
+            
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-lines').trim();
+            ctx.lineWidth = 1.5 * scaleFactor;
+
+            if (isPortraitMode) {
+                ctx.strokeRect((canvas.width - paWidth) / 2, 0 + GOAL_DEPTH, paWidth, paHeight - GOAL_DEPTH); 
+                ctx.strokeRect((canvas.width - paWidth) / 2, canvas.height - paHeight, paWidth, paHeight - GOAL_DEPTH); 
+            } else {
+                ctx.strokeRect(0 + GOAL_DEPTH, (canvas.height - paHeight) / 2, paWidth - GOAL_DEPTH, paHeight); 
+                ctx.strokeRect(canvas.width - paWidth, (canvas.height - paHeight) / 2, paWidth - GOAL_DEPTH, paHeight);
+            }
+        }
+
+        function drawFieldPlayer(player) { 
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, PLAYER_RADIUS, 0, Math.PI * 2);
+            
+            ctx.shadowColor = player.color;
+            ctx.shadowBlur = 4 * scaleFactor; // Reduced shadow
+            ctx.fillStyle = player.color;
+            ctx.fill();
+            ctx.shadowBlur = 0; 
+
+            ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+            ctx.lineWidth = 0.5 * scaleFactor; // Thinner border
+            ctx.stroke();
+            
+            // Simple facing indicator if moving (Sensi style - often no static indicator)
+            if (player.dx !== 0 || player.dy !== 0) {
+                const angle = Math.atan2(player.dy, player.dx);
+                ctx.beginPath();
+                ctx.moveTo(player.x + Math.cos(angle) * PLAYER_RADIUS * 0.3, player.y + Math.sin(angle) * PLAYER_RADIUS * 0.3);
+                ctx.lineTo(player.x + Math.cos(angle) * PLAYER_RADIUS * 0.8, player.y + Math.sin(angle) * PLAYER_RADIUS * 0.8);
+                ctx.strokeStyle = 'white'; ctx.lineWidth = 1 * scaleFactor; ctx.stroke();
+            }
+        }
+        
+        function drawGoalkeeper(gk) {
+            ctx.beginPath();
+            ctx.arc(gk.x, gk.y, GOALKEEPER_RADIUS, 0, Math.PI * 2);
+            ctx.shadowColor = gk.color;
+            ctx.shadowBlur = 5 * scaleFactor; 
+            ctx.fillStyle = gk.color;
+            ctx.fill();
+            ctx.shadowBlur = 0; 
+            ctx.strokeStyle = 'rgba(0,0,0,0.7)'; 
+            ctx.lineWidth = 0.75 * scaleFactor;
+            ctx.stroke();
+        }
+
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
+            ctx.shadowColor = ball.color;
+            ctx.shadowBlur = 6 * scaleFactor; // Reduced shadow
+            ctx.fillStyle = ball.color;
+            ctx.fill();
+            ctx.shadowBlur = 0; 
+            ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+            ctx.lineWidth = 0.5 * scaleFactor;
+            ctx.stroke();
+        }
+
+
+        function updateFieldPlayer(player, isAI = false, deltaTime) {
+            let currentBaseSpeed = PLAYER_SPEED * (isAI ? AI_SPEED_MODIFIER : 1);
+            let actualSpeed = player.isSprinting ? currentBaseSpeed * (isAI ? AI_SPRINT_MODIFIER : PLAYER_SPRINT_MULTIPLIER) : currentBaseSpeed;
+            
+            let targetDx = 0, targetDy = 0;
+
+            if (!isAI) { // Human Player
+                // Process input for kick charging / sprint state
+                if (player.actionButtonDown) {
+                    if (player.hasBall && ball.controlledBy === player) {
+                        player.isSprinting = false;
+                        // Check if hold duration exceeds tap threshold for charging
+                        if (performance.now() - player.actionButtonStartTime > KICK_TAP_THRESHOLD_MS) {
+                            player.kickCharge = Math.min(MAX_KICK_CHARGE, player.kickCharge + KICK_CHARGE_RATE * (deltaTime / (1000/60)));
+                        }
+                    } else { // No ball, so sprint
+                        player.isSprinting = true;
+                    }
+                } else { // Action button is up
+                    player.isSprinting = false; 
+                    // If player was charging and button is now up, isKicking is set by input handler to trigger kick
+                }
+
+                // Movement from joystick/keys
+                let moveX = 0, moveY = 0;
+                if (isTouchDevice && touchState.joystickActive) {
+                    const joystickRadius = joystickArea.offsetWidth / 2;
+                    const relativeX = (touchState.joystickCurrentX - joystickArea.offsetWidth / 2) / joystickRadius;
+                    const relativeY = (touchState.joystickCurrentY - joystickArea.offsetHeight / 2) / joystickRadius;
+                    const magnitude = Math.sqrt(relativeX * relativeX + relativeY * relativeY);
+                    if (magnitude > JOYSTICK_DEADZONE) {
+                        const effectiveMagnitude = Math.min(1, (magnitude - JOYSTICK_DEADZONE) / (1 - JOYSTICK_DEADZONE));
+                        moveX = (relativeX / magnitude) * effectiveMagnitude;
+                        moveY = (relativeY / magnitude) * effectiveMagnitude;
+                    }
+                } else if (!isTouchDevice) {
+                    if (keys['ArrowUp'] || keys['w']) moveY -= 1;
+                    if (keys['ArrowDown'] || keys['s']) moveY += 1;
+                    if (keys['ArrowLeft'] || keys['a']) moveX -= 1;
+                    if (keys['ArrowRight'] || keys['d']) moveX += 1;
+                }
+
+                if (moveX !== 0 || moveY !== 0) {
+                    const normFactor = Math.sqrt(moveX * moveX + moveY * moveY);
+                    targetDx = (moveX / normFactor) * actualSpeed;
+                    targetDy = (moveY / normFactor) * actualSpeed;
+                }
+
+            } else { // AI Player
+                let targetDestX = ball.x;
+                let targetDestY = ball.y;
+                const aiPlayer = player; // P2 is AI
+
+                if (aiPlayer.hasBall && ball.controlledBy === aiPlayer) { // AI has ball, move towards P1's goal
+                    if (isPortraitMode) { // P1 goal is top
+                        targetDestX = canvas.width / 2; targetDestY = 0 - PLAYER_RADIUS * 5; // Aim deep
+                    } else { // P1 goal is left
+                        targetDestX = 0 - PLAYER_RADIUS * 5; targetDestY = canvas.height / 2;
+                    }
+                    aiPlayer.isSprinting = true; // Sprint when dribbling towards goal
+                } else { // AI doesn't have ball, move towards ball
+                     aiPlayer.isSprinting = Math.random() < 0.3; // Occasional sprint when chasing
+                }
+                
+                const angleToTarget = Math.atan2(targetDestY - aiPlayer.y, targetDestX - aiPlayer.x);
+                targetDx = Math.cos(angleToTarget) * actualSpeed;
+                targetDy = Math.sin(angleToTarget) * actualSpeed;
+
+                // AI Kicking decision
+                if (aiPlayer.hasBall && ball.controlledBy === aiPlayer) {
+                    let shoot = false;
+                    if (isPortraitMode) { // AI (P2) attacks bottom goal. P1's goal is at Y=0.
+                        if (aiPlayer.y < canvas.height * 0.40) shoot = true; // In shooting range (top 40% of pitch for P2)
+                    } else { // AI (P2) attacks left goal. P1's goal is at X=0.
+                        if (aiPlayer.x < canvas.width * 0.40) shoot = true;
+                    }
+                    if (shoot && Math.random() < 0.1) { // Chance to shoot if in range
+                        aiPlayer.isKicking = true;
+                        aiPlayer.kickCharge = Math.random() * (MAX_KICK_CHARGE - MIN_KICK_POWER_FACTOR) + MIN_KICK_POWER_FACTOR; // Random kick power
+                    }
+                }
+            }
+            
+            player.dx = player.dx * PLAYER_INERTIA + targetDx * (1 - PLAYER_INERTIA);
+            player.dy = player.dy * PLAYER_INERTIA + targetDy * (1 - PLAYER_INERTIA);
+            player.x += player.dx * (deltaTime / (1000/60)); // Scale by deltaTime
+            player.y += player.dy * (deltaTime / (1000/60));
+
+            player.x = Math.max(PLAYER_RADIUS, Math.min(canvas.width - PLAYER_RADIUS, player.x));
+            player.y = Math.max(PLAYER_RADIUS, Math.min(canvas.height - PLAYER_RADIUS, player.y));
+
+            // Dribbling: Ball sticks to player
+            if (player.hasBall && ball.controlledBy === player) {
+                const moveAngle = (player.dx !== 0 || player.dy !== 0) ? Math.atan2(player.dy, player.dx) : player.lastMoveAngle;
+                player.lastMoveAngle = moveAngle;
+                ball.x = player.x + Math.cos(moveAngle) * DRIBBLING_OFFSET_DISTANCE;
+                ball.y = player.y + Math.sin(moveAngle) * DRIBBLING_OFFSET_DISTANCE;
+                ball.dx = player.dx * 0.7; ball.dy = player.dy * 0.7; // Ball moves with player
+            }
+
+            // Kicking (triggered by isKicking flag, often set on button release for human)
+            if (player.isKicking && player.hasBall && ball.controlledBy === player) {
+                let kickAngle;
+                let kickPower;
+
+                if (!isAI) { // Human player
+                    kickAngle = (player.dx !== 0 || player.dy !== 0) ? Math.atan2(player.dy, player.dx) : player.lastMoveAngle;
+                     // If stationary, aim at center of opponent goal
+                    if (player.dx === 0 && player.dy === 0) {
+                        let goalX, goalY;
+                        if (player === player1) { // P1 attacks P2's goal
+                             goalX = isPortraitMode ? canvas.width / 2 : canvas.width;
+                             goalY = isPortraitMode ? 0 : canvas.height / 2; // P1 (human) attacks top goal in portrait
+                        } else { /* Should not happen for P2 if AI */ }
+                        kickAngle = Math.atan2(goalY - player.y, goalX - player.x);
+                    }
+                    kickPower = PASS_STRENGTH + (KICK_STRENGTH - PASS_STRENGTH) * player.kickCharge;
+                } else { // AI Player
+                    let goalTargetX, goalTargetY;
+                     // AI P2 aims for P1's goal (top in portrait, left in landscape)
+                    if (isPortraitMode) { 
+                        goalTargetX = canvas.width / 2 + (Math.random() - 0.5) * GOAL_WIDTH * 0.6;
+                        goalTargetY = 0; // Top goal
+                    } else { 
+                        goalTargetX = 0; // Left goal
+                        goalTargetY = canvas.height / 2 + (Math.random() - 0.5) * GOAL_WIDTH * 0.6;
+                    }
+                    kickAngle = Math.atan2(goalTargetY - ball.y, goalTargetX - ball.x);
+                    kickPower = KICK_STRENGTH * player.kickCharge * AI_KICK_POWER_FACTOR;
+                }
+
+                ball.dx = Math.cos(kickAngle) * kickPower;
+                ball.dy = Math.sin(kickAngle) * kickPower;
+                
+                player.hasBall = false;
+                ball.controlledBy = null;
+                ball.lastTouchedBy = player;
+                player.isKicking = false;
+                player.kickCharge = 0;
+                if(!isAI) player.actionButtonDown = false; // Reset for human after kick
+
+                createParticles(ball.x, ball.y, 3 + Math.floor(kickPower/KICK_STRENGTH * 5), player.color);
+                triggerScreenShake(kickPower / KICK_STRENGTH * 1.5, 5 + Math.floor(kickPower/KICK_STRENGTH*5) );
+            }
+            
+            // Attempt to gain possession
+            if (!player.hasBall && ball.controlledBy === null) {
+                const distToBall = distance(player.x, player.y, ball.x, ball.y);
+                if (distToBall < DRIBBLING_DISTANCE_THRESHOLD * (isAI ? 1.1 : 1)) { // AI slightly better pickup
+                    player.hasBall = true;
+                    ball.controlledBy = player;
+                    // Snap ball to front
+                    const angleToBall = Math.atan2(ball.y - player.y, ball.x - player.x);
+                    ball.x = player.x + Math.cos(angleToBall) * DRIBBLING_OFFSET_DISTANCE * 0.8;
+                    ball.y = player.y + Math.sin(angleToBall) * DRIBBLING_OFFSET_DISTANCE * 0.8;
+                }
+            }
+        }
+
+
+        function updateGoalkeeper(gk, isPlayer1GK, deltaTime) {
+            let ballTrackPos, gkTrackPosAxis, gkFixedPosAxis, goalLineCenterFixed;
+            let goalMinTrack, goalMaxTrack;
+            
+            const diveSpeedMultiplier = 1.8;
+            const diveDistance = GOALKEEPER_RADIUS * 3;
+            const reactionDist = (isPortraitMode ? canvas.height : canvas.width) / 2.5;
+
+            if (isPortraitMode) {
+                ballTrackPos = ball.x; gkTrackPosAxis = 'x'; gkFixedPosAxis = 'y';
+                goalMinTrack = (canvas.width - GOAL_WIDTH) / 2 + GOALKEEPER_RADIUS;
+                goalMaxTrack = (canvas.width + GOAL_WIDTH) / 2 - GOALKEEPER_RADIUS;
+                goalLineCenterFixed = isPlayer1GK ? gk.initialY : gk.initialY;
+            } else { // Landscape
+                ballTrackPos = ball.y; gkTrackPosAxis = 'y'; gkFixedPosAxis = 'x';
+                goalMinTrack = (canvas.height - GOAL_WIDTH) / 2 + GOALKEEPER_RADIUS;
+                goalMaxTrack = (canvas.height + GOAL_WIDTH) / 2 - GOALKEEPER_RADIUS;
+                goalLineCenterFixed = isPlayer1GK ? gk.initialX : gk.initialX;
+            }
+
+            let targetTrackPos = ballTrackPos;
+            targetTrackPos = Math.max(goalMinTrack, Math.min(goalMaxTrack, targetTrackPos));
+            
+            const trackDiff = targetTrackPos - gk[gkTrackPosAxis];
+            gk['d'+gkTrackPosAxis] = Math.sign(trackDiff) * Math.min(Math.abs(trackDiff), GOALKEEPER_SPEED * 0.8); // Slower side-to-side for Sensi feel
+
+            // Dive logic
+            let ballDistToGoal, ballApproachingGoal;
+            if (isPortraitMode) {
+                ballDistToGoal = isPlayer1GK ? ball.y - gk.initialY : gk.initialY - ball.y;
+                ballApproachingGoal = isPlayer1GK ? ball.dy < -BALL_RADIUS*0.05 : ball.dy > BALL_RADIUS*0.05;
+            } else {
+                ballDistToGoal = isPlayer1GK ? ball.x - gk.initialX : gk.initialX - ball.x;
+                ballApproachingGoal = isPlayer1GK ? ball.dx < -BALL_RADIUS*0.05 : ball.dx > BALL_RADIUS*0.05;
+            }
+            
+            const ballInLineWithGoal = Math.abs(ballTrackPos - gk[gkTrackPosAxis]) < GOAL_WIDTH * 0.6;
+
+            if (ballDistToGoal < reactionDist && ballApproachingGoal && ballInLineWithGoal && ball.controlledBy === null && Math.abs(ball[gkFixedPosAxis] - goalLineCenterFixed) < reactionDist * 1.5) {
+                // Dive towards the ball along the fixed axis
+                let diveTarget = goalLineCenterFixed + Math.sign(ball[gkFixedPosAxis] - goalLineCenterFixed) * diveDistance;
+                 if (isPlayer1GK && isPortraitMode) diveTarget = gk.initialY + diveDistance; // GK1 dives "down"
+                 else if (!isPlayer1GK && isPortraitMode) diveTarget = gk.initialY - diveDistance; // GK2 dives "up"
+                 else if (isPlayer1GK && !isPortraitMode) diveTarget = gk.initialX + diveDistance; // GK1 dives "right"
+                 else if (!isPlayer1GK && !isPortraitMode) diveTarget = gk.initialX - diveDistance; // GK2 dives "left"
+
+
+                const diveDiff = diveTarget - gk[gkFixedPosAxis];
+                gk['d'+gkFixedPosAxis] = Math.sign(diveDiff) * Math.min(Math.abs(diveDiff), GOALKEEPER_SPEED * diveSpeedMultiplier);
+            } else {
+                // Return to goal line center on fixed axis
+                const returnDiff = goalLineCenterFixed - gk[gkFixedPosAxis];
+                if (Math.abs(returnDiff) > GOALKEEPER_SPEED * 0.1) {
+                    gk['d'+gkFixedPosAxis] = Math.sign(returnDiff) * GOALKEEPER_SPEED * 0.6;
+                } else {
+                    gk[gkFixedPosAxis] = goalLineCenterFixed;
+                    gk['d'+gkFixedPosAxis] = 0;
+                }
+            }
+
+            gk.x += gk.dx * (deltaTime / (1000/60));
+            gk.y += gk.dy * (deltaTime / (1000/60));
+
+            gk[gkTrackPosAxis] = Math.max(goalMinTrack - GOALKEEPER_RADIUS, Math.min(goalMaxTrack + GOALKEEPER_RADIUS, gk[gkTrackPosAxis]));
+            gk[gkFixedPosAxis] = Math.max(goalLineCenterFixed - diveDistance * 1.1, Math.min(goalLineCenterFixed + diveDistance * 1.1, gk[gkFixedPosAxis]));
+        }
+
+
+        function updateBall(deltaTime) {
+            if (ball.controlledBy === null) { // Only apply physics if not controlled
+                ball.x += ball.dx * (deltaTime / (1000/60));
+                ball.y += ball.dy * (deltaTime / (1000/60));
+                ball.dx *= Math.pow(BALL_INERTIA, deltaTime / (1000/60)); // Inertia scaled by deltaTime
+                ball.dy *= Math.pow(BALL_INERTIA, deltaTime / (1000/60));
+            }
+
+
+            const ballSpeed = Math.sqrt(ball.dx**2 + ball.dy**2);
+            if (ballSpeed > MAX_BALL_SPEED) {
+                ball.dx = (ball.dx / ballSpeed) * MAX_BALL_SPEED;
+                ball.dy = (ball.dy / ballSpeed) * MAX_BALL_SPEED;
+            }
+
+            const ballHitWall = () => createParticles(ball.x, ball.y, 2); // Fewer particles for wall hit
+
+            if (isPortraitMode) {
+                if (ball.x - BALL_RADIUS < 0 || ball.x + BALL_RADIUS > canvas.width) {
+                    ball.dx *= -0.75; // Less bounce
+                    ball.x = Math.max(BALL_RADIUS, Math.min(canvas.width - BALL_RADIUS, ball.x));
+                    ballHitWall();
+                }
+                const goalXMin = (canvas.width - GOAL_WIDTH) / 2;
+                const goalXMax = (canvas.width + GOAL_WIDTH) / 2;
+
+                if (ball.y - BALL_RADIUS < GOAL_DEPTH) { // P1's goal (top)
+                    if (ball.x > goalXMin && ball.x < goalXMax) {
+                        if (ball.y - BALL_RADIUS < 0) goalScored(player2); // P2 scored
+                    } else if (ball.y - BALL_RADIUS < 0) { 
+                        ball.dy *= -0.75; ball.y = BALL_RADIUS; ballHitWall();
+                    }
+                }
+                if (ball.y + BALL_RADIUS > canvas.height - GOAL_DEPTH) { // P2's goal (bottom)
+                    if (ball.x > goalXMin && ball.x < goalXMax) {
+                        if (ball.y + BALL_RADIUS > canvas.height) goalScored(player1); // P1 scored
+                    } else if (ball.y + BALL_RADIUS > canvas.height) {
+                        ball.dy *= -0.75; ball.y = canvas.height - BALL_RADIUS; ballHitWall();
+                    }
+                }
+
+            } else { // Landscape mode
+                if (ball.y - BALL_RADIUS < 0 || ball.y + BALL_RADIUS > canvas.height) {
+                    ball.dy *= -0.75; 
+                    ball.y = Math.max(BALL_RADIUS, Math.min(canvas.height - BALL_RADIUS, ball.y));
+                    ballHitWall();
+                }
+
+                const goalLineY1 = (canvas.height - GOAL_WIDTH) / 2;
+                const goalLineY2 = (canvas.height + GOAL_WIDTH) / 2;
+                
+                const checkPostCollision = (postX, isLeftPost) => {
+                    // Simplified post check - if ball x is beyond goal mouth x and y is near post y
+                    if ( (isLeftPost && ball.x < postX) || (!isLeftPost && ball.x > postX) ) {
+                         if (distance(ball.x, ball.y, postX, goalLineY1) < BALL_RADIUS + 3*scaleFactor ||
+                             distance(ball.x, ball.y, postX, goalLineY2) < BALL_RADIUS + 3*scaleFactor) {
+                            ball.dx *= -0.8; ball.dy *= 0.6;  
+                            createParticles(ball.x, ball.y, 5, getComputedStyle(document.documentElement).getPropertyValue('--goal-lines').trim());
+                            triggerScreenShake(2, 8);
+                            return true;
+                         }
+                    }
+                    return false;
+                };
+
+                if (ball.x - BALL_RADIUS < GOAL_DEPTH) { // P2's goal (left)
+                    if (ball.y > goalLineY1 && ball.y < goalLineY2) { 
+                        if (ball.x - BALL_RADIUS < 0) goalScored(player2); 
+                    } else if (ball.x - BALL_RADIUS < 0 || checkPostCollision(GOAL_DEPTH, true)) { 
+                         if(!checkPostCollision(GOAL_DEPTH, true)) { 
+                            ball.dx *= -0.75; ball.x = BALL_RADIUS; ballHitWall();
+                         }
+                    }
+                }
+                if (ball.x + BALL_RADIUS > canvas.width - GOAL_DEPTH) {  // P1's goal (right)
+                     if (ball.y > goalLineY1 && ball.y < goalLineY2) { 
+                        if (ball.x + BALL_RADIUS > canvas.width) goalScored(player1); 
+                     } else if (ball.x + BALL_RADIUS > canvas.width || checkPostCollision(canvas.width - GOAL_DEPTH, false)) { 
+                         if(!checkPostCollision(canvas.width - GOAL_DEPTH, false)) {
+                            ball.dx *= -0.75; ball.x = canvas.width - BALL_RADIUS; ballHitWall();
+                         }
+                     }
+                }
+            }
+        }
+
+        function handleCollisions() {
+            // Player-Player collision (simple push back and potential ball loss)
+            if (player1 && player2) {
+                const pDist = distance(player1.x, player1.y, player2.x, player2.y);
+                const collisionThreshold = PLAYER_RADIUS * 1.8; // Slightly less than 2*R for more "overlap" feel
+
+                if (pDist < collisionThreshold) {
+                    const angle = Math.atan2(player2.y - player1.y, player2.x - player1.x);
+                    const overlap = collisionThreshold - pDist;
+                    const moveBack = overlap / 2 * 0.8; // Less aggressive push back
+                    
+                    player1.x -= Math.cos(angle) * moveBack;
+                    player1.y -= Math.sin(angle) * moveBack;
+                    player2.x += Math.cos(angle) * moveBack;
+                    player2.y += Math.sin(angle) * moveBack;
+
+                    // Tackle/Dispossession
+                    const tackleChance = 0.35; // Base chance to lose ball
+                    if (player1.hasBall && ball.controlledBy === player1 && (player2.isSprinting || Math.abs(player2.dx) + Math.abs(player2.dy) > PLAYER_SPEED*0.5) ) {
+                        if (Math.random() < tackleChance) {
+                            player1.hasBall = false; ball.controlledBy = null;
+                            ball.dx += (Math.random() - 0.5) * KICK_STRENGTH * 0.05; // Small nudge
+                            ball.dy += (Math.random() - 0.5) * KICK_STRENGTH * 0.05;
+                            createParticles(player1.x, player1.y, 3, player2.color);
+                        }
+                    } else if (player2.hasBall && ball.controlledBy === player2 && (player1.isSprinting || Math.abs(player1.dx) + Math.abs(player1.dy) > PLAYER_SPEED*0.5) ) {
+                        if (Math.random() < tackleChance) {
+                            player2.hasBall = false; ball.controlledBy = null;
+                            ball.dx += (Math.random() - 0.5) * KICK_STRENGTH * 0.05;
+                            ball.dy += (Math.random() - 0.5) * KICK_STRENGTH * 0.05;
+                             createParticles(player2.x, player2.y, 3, player1.color);
+                        }
+                    }
+                }
+            }
+
+            // Ball-Goalkeeper collision
+            [goalkeeper1, goalkeeper2].forEach((gk, index) => {
+                if (ball.controlledBy === null || Math.sqrt(ball.dx**2 + ball.dy**2) > PLAYER_SPEED * 0.8) { // GK only interacts with fast/loose ball
+                    const distBetween = distance(gk.x, gk.y, ball.x, ball.y);
+                    const saveRadius = GOALKEEPER_RADIUS + BALL_RADIUS - (1 * scaleFactor); // Slightly smaller save radius for Sensi feel
+
+                    if (distBetween < saveRadius) {
+                        const isGk1 = (gk === goalkeeper1);
+                        let clearAngle;
+                        // Determine general direction to clear (away from goal center)
+                        if (isPortraitMode) {
+                            clearAngle = isGk1 ? Math.PI / 2 + (Math.random() - 0.5) * 1.2 : -Math.PI / 2 + (Math.random() - 0.5) * 1.2; // GK1 clears "down", GK2 "up"
+                            if (ball.x < canvas.width/2) clearAngle += (Math.random() * 0.3 - 0.15) * (isGk1 ? 1: -1); // Angle slightly towards side
+                            else clearAngle -= (Math.random() * 0.3 - 0.15) * (isGk1 ? 1: -1);
+                        } else {
+                            clearAngle = isGk1 ? (Math.random() - 0.5) * Math.PI * 0.6 : Math.PI + (Math.random() - 0.5) * Math.PI * 0.6; // GK1 clears "right", GK2 "left"
+                             if (ball.y < canvas.height/2) clearAngle += (Math.random() * 0.3 - 0.15) * (isGk1 ? 1: -1);
+                             else clearAngle -= (Math.random() * 0.3 - 0.15) * (isGk1 ? 1: -1);
+                        }
+                        
+                        const saveStrength = KICK_STRENGTH * (0.3 + Math.random() * 0.3); // Weaker, variable saves
+
+                        ball.dx = Math.cos(clearAngle) * saveStrength + gk.dx * 0.05; // Less influence from GK movement
+                        ball.dy = Math.sin(clearAngle) * saveStrength + gk.dy * 0.05;
+
+                        // Push ball out of GK slightly
+                        const pushAngle = Math.atan2(ball.y - gk.y, ball.x - gk.x);
+                        ball.x += Math.cos(pushAngle) * (saveRadius - distBetween + 1*scaleFactor); 
+                        ball.y += Math.sin(pushAngle) * (saveRadius - distBetween + 1*scaleFactor);
+                        
+                        ball.controlledBy = null; 
+                        if(player1) player1.hasBall = false; if(player2) player2.hasBall = false;
+                        ball.lastTouchedBy = gk; 
+
+                        createParticles(ball.x, ball.y, 5, gk.color);
+                        triggerScreenShake(1, 5);
+                    }
+                }
+            });
+        }
+        
+        function goalScored(scoringPlayer) {
+            if (gameState !== 'PLAYING') return;
+            gameState = 'GOAL_SCORED';
+            scoringPlayer.score++;
+            updateScores();
+            showMessage("GOAL!!!", 2200, true); 
+            triggerScreenShake(4, 15); 
+            createParticles(canvas.width / 2, canvas.height / 2, 25, getComputedStyle(document.documentElement).getPropertyValue('--particle-color-goal').trim()); 
+            
+            const originalPitchColor = getComputedStyle(document.documentElement).getPropertyValue('--pitch-green').trim();
+            document.documentElement.style.setProperty('--pitch-green', '#33cc33'); 
+            setTimeout(() => {
+                document.documentElement.style.setProperty('--pitch-green', originalPitchColor);
+            }, 150); 
+
+            // Sensi often has a max score or leads to game end faster
+            if (scoringPlayer.score >= 3) { // Reduced goal limit for faster games
+                endGame(scoringPlayer === player1 ? "Player 1" : "Player 2");
+            }
+        }
+
+        function resetPositions(resetScores = true) {
+            updateScaledConstants(); 
+
+            const p1Color = getComputedStyle(document.documentElement).getPropertyValue('--player1-neon').trim();
+            const p2Color = getComputedStyle(document.documentElement).getPropertyValue('--player2-neon').trim();
+            const gk1Color = getComputedStyle(document.documentElement).getPropertyValue('--gk1-neon').trim();
+            const gk2Color = getComputedStyle(document.documentElement).getPropertyValue('--gk2-neon').trim();
+            const ballColor = getComputedStyle(document.documentElement).getPropertyValue('--ball-neon').trim();
+
+            let p1ScoreValue = player1 ? player1.score : 0; 
+            let p2ScoreValue = player2 ? player2.score : 0;
+            if (resetScores) { p1ScoreValue = 0; p2ScoreValue = 0; }
+
+            // Common properties for players
+            const playerCommon = { dx: 0, dy: 0, isSprinting: false, hasBall: false, isKicking: false, kickCharge: 0, actionButtonDown: false, actionButtonStartTime: 0, lastMoveAngle: 0 };
+            
+            // Player 1 (Human) attacks P2's goal (Right in Landscape, Top in Portrait)
+            // Player 2 (AI)    attacks P1's goal (Left in Landscape, Bottom in Portrait)
+            // NOTE: This means P1 (bottom) attacks UP (Y=0) in portrait. P2 (top) attacks DOWN (Y=canvas.height) in portrait.
+            // The original code had P1 attacking P2's goal (right/top), P2 attacking P1's goal (left/bottom)
+            // Let's stick to: P1 (BLUE) attacks RIGHT (landscape) / TOP (portrait)
+            // P2 (RED) attacks LEFT (landscape) / BOTTOM (portrait)
+
+            if (isPortraitMode) {
+                player1 = { ...playerCommon, x: canvas.width / 2, y: canvas.height * 0.70, score: p1ScoreValue, color: p1Color, lastMoveAngle: -Math.PI/2 }; // Starts lower, attacks UP
+                player2 = { ...playerCommon, x: canvas.width / 2, y: canvas.height * 0.30, score: p2ScoreValue, color: p2Color, lastMoveAngle: Math.PI/2 };  // Starts higher, attacks DOWN
+                
+                goalkeeper1 = { initialX: canvas.width / 2, initialY: GOALKEEPER_RADIUS * 1.5, x: canvas.width / 2, y: GOALKEEPER_RADIUS * 1.5, dx: 0, dy: 0, color: gk1Color }; // P1's GK (defends top goal)
+                goalkeeper2 = { initialX: canvas.width / 2, initialY: canvas.height - GOALKEEPER_RADIUS * 1.5, x: canvas.width / 2, y: canvas.height - GOALKEEPER_RADIUS * 1.5, dx: 0, dy: 0, color: gk2Color }; // P2's GK (defends bottom goal)
+            } else { // Landscape
+                player1 = { ...playerCommon, x: canvas.width * 0.30, y: canvas.height / 2, score: p1ScoreValue, color: p1Color, lastMoveAngle: 0 }; // Starts left, attacks RIGHT
+                player2 = { ...playerCommon, x: canvas.width * 0.70, y: canvas.height / 2, score: p2ScoreValue, color: p2Color, lastMoveAngle: Math.PI }; // Starts right, attacks LEFT
+
+                goalkeeper1 = { initialX: GOALKEEPER_RADIUS * 1.5, initialY: canvas.height / 2, x: GOALKEEPER_RADIUS * 1.5, y: canvas.height / 2, dx: 0, dy: 0, color: gk1Color }; // P1's GK (defends left goal)
+                goalkeeper2 = { initialX: canvas.width - GOALKEEPER_RADIUS * 1.5, initialY: canvas.height / 2, x: canvas.width - GOALKEEPER_RADIUS * 1.5, y: canvas.height / 2, dx: 0, dy: 0, color: gk2Color }; // P2's GK (defends right goal)
+            }
+            
+            ball = {
+                x: canvas.width / 2, y: canvas.height / 2,
+                dx: 0, dy: 0, // Kick-off ball is stationary
+                color: ballColor, controlledBy: null, lastTouchedBy: null
+            };
+            // Randomly assign ball to a player for kick-off if not first kick-off
+            if(gameState !== 'INITIAL' && !resetScores) {
+                const kickoffPlayer = Math.random() < 0.5 ? player1 : player2;
+                kickoffPlayer.hasBall = true;
+                ball.controlledBy = kickoffPlayer;
+            }
+
+
+            ballTrail = []; particles = []; updateScores(); 
+        }
+
+        function startGameTimer() {
+            timeLeft = GAME_DURATION_SECONDS;
+            updateTimerDisplay();
+            if (gameTimerInterval) clearInterval(gameTimerInterval);
+            gameTimerInterval = setInterval(() => {
+                if (gameState === 'PLAYING') {
+                    timeLeft--;
+                    updateTimerDisplay();
+                    if (timeLeft <= 0) endGame();
+                }
+            }, 1000);
+        }
+
+        function startGame() {
+            if (gameState === 'PLAYING') return;
+            messageDisplay.classList.remove('show', 'goal-celebration'); 
+            messageDisplay.style.display = 'none';
+            resetPositions(true); 
+            startGameTimer();
+            gameState = 'READY';
+            showMessage("KICK OFF!", 1200);
+            setTimeout(() => { if(gameState === 'READY') gameState = 'PLAYING'; }, 1200);
+        }
+
+        function endGame(winner = null) {
+            gameState = 'GAME_OVER';
+            clearInterval(gameTimerInterval);
+            let message = "TIME UP! ";
+            if (winner) message = `${winner} WINS!`;
+            else {
+                if (player1.score > player2.score) message += "P1 WINS!";
+                else if (player2.score > player1.score) message += "P2 WINS!";
+                else message += "IT'S A DRAW!";
+            }
+            message += isTouchDevice ? "\nTap KICK for New Game" : "\nENTER for New Game";
+            showMessage(message, -1); 
+        }
+
+        function setupTouchControls() {
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                isTouchDevice = true;
+                touchControlsContainer.style.display = 'flex';
+                controlsInfoDisplay.style.display = 'none';
+
+                joystickArea.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    if (touchState.joystickTouchId === null) {
+                        touchState.joystickTouchId = e.changedTouches[0].identifier;
+                        touchState.joystickActive = true;
+                        touchState.joystickStartX = joystickArea.offsetWidth / 2;
+                        touchState.joystickStartY = joystickArea.offsetHeight / 2;
+                        joystickNub.style.transition = ''; 
+                        updateJoystickNub(e.changedTouches[0]);
+                    }
+                }, { passive: false });
+
+                document.addEventListener('touchmove', (e) => { 
+                    if (touchState.joystickActive && touchState.joystickTouchId !== null) {
+                        for (let i = 0; i < e.changedTouches.length; i++) {
+                            if (e.changedTouches[i].identifier === touchState.joystickTouchId) {
+                                e.preventDefault(); 
+                                updateJoystickNub(e.changedTouches[i]);
+                                break;
+                            }
+                        }
+                    }
+                }, { passive: false });
+
+                const touchendOrCancel = (e) => {
+                    if (touchState.joystickTouchId !== null) {
+                        for (let i = 0; i < e.changedTouches.length; i++) {
+                            if (e.changedTouches[i].identifier === touchState.joystickTouchId) {
+                                touchState.joystickActive = false;
+                                touchState.joystickTouchId = null;
+                                joystickNub.style.transition = 'top 0.1s ease-out, left 0.1s ease-out';
+                                joystickNub.style.left = '50%';
+                                joystickNub.style.top = '50%';
+                                break;
+                            }
+                        }
+                    }
+                };
+                document.addEventListener('touchend', touchendOrCancel); 
+                document.addEventListener('touchcancel', touchendOrCancel); 
+
+                function updateJoystickNub(touch) {
+                    const rect = joystickArea.getBoundingClientRect(); 
+                    let x = touch.clientX - rect.left;
+                    let y = touch.clientY - rect.top;
+                    const centerX = joystickArea.offsetWidth / 2;
+                    const centerY = joystickArea.offsetHeight / 2;
+                    const deltaX = x - centerX;
+                    const deltaY = y - centerY;
+                    let dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                    const maxDist = joystickArea.offsetWidth / 2 - joystickNub.offsetWidth / 2;
+
+                    if (dist > maxDist) {
+                        x = centerX + (deltaX / dist) * maxDist;
+                        y = centerY + (deltaY / dist) * maxDist;
+                    }
+                    joystickNub.style.left = `${x}px`; joystickNub.style.top = `${y}px`;
+                    touchState.joystickCurrentX = x; touchState.joystickCurrentY = y;
+                }
+
+                kickButton.addEventListener('touchstart', (e) => {
+                    e.preventDefault(); 
+                    if (player1) {
+                        player1.actionButtonDown = true;
+                        player1.actionButtonStartTime = performance.now();
+                        player1.kickCharge = 0; // Reset charge on new press
+                    }
+                    if (gameState === 'GAME_OVER' || gameState === 'INITIAL') startGame();
+                }, { passive: false });
+
+                kickButton.addEventListener('touchend', (e) => { 
+                    e.preventDefault(); 
+                     if (player1) {
+                        if (player1.actionButtonDown && player1.hasBall) { // If button was down and player has ball, it's a kick
+                            player1.isKicking = true; // Signal to kick in update loop
+                            // kickCharge is already set by hold duration or defaults to 0 for tap (handled by updateFieldPlayer using MIN_KICK_POWER_FACTOR)
+                        }
+                        player1.actionButtonDown = false;
+                    }
+                }, { passive: false });
+                kickButton.addEventListener('touchcancel', (e) => { /* Same as touchend */
+                     e.preventDefault(); 
+                     if (player1) {player1.actionButtonDown = false;}
+                }, { passive: false });
+
+            } else {
+                touchControlsContainer.style.display = 'none';
+            }
+        }
+        
+        function gameLoop(timestamp) {
+            const deltaTime = Math.min(32, timestamp - lastTime); // Cap deltaTime to prevent large jumps (e.g. on tab switch) Max 32ms (~30fps)
+            lastTime = timestamp;
+
+            if (screenShakeDuration > 0) {
+                const shakeX = (Math.random() - 0.5) * screenShakeMagnitude;
+                const shakeY = (Math.random() - 0.5) * screenShakeMagnitude;
+                canvasWrapper.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
+                screenShakeDuration--;
+            } else {
+                canvasWrapper.style.transform = 'translate(0,0)';
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPitch();
+            if (ball) { updateAndDrawBallTrail(); }
+            updateAndDrawParticles(); 
+
+            if (gameState === 'PLAYING' || gameState === 'GOAL_SCORED' || gameState === 'READY') {
+                if (player1 && player2 && ball && goalkeeper1 && goalkeeper2) { 
+                    updateFieldPlayer(player1, false, deltaTime);
+                    updateFieldPlayer(player2, true, deltaTime);
+                    updateGoalkeeper(goalkeeper1, true, deltaTime); 
+                    updateGoalkeeper(goalkeeper2, false, deltaTime); 
+                    updateBall(deltaTime); 
+                    handleCollisions();
+                }
+            }
+            
+            if (player1 && player2 && ball && goalkeeper1 && goalkeeper2) { 
+                drawFieldPlayer(player1);
+                drawFieldPlayer(player2);
+                drawGoalkeeper(goalkeeper1);
+                drawGoalkeeper(goalkeeper2);
+                drawBall(); 
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true; // Use toLowerCase for wasd/WASD
+            if (e.key === 'Enter' && (gameState === 'GAME_OVER' || gameState === 'INITIAL')) startGame();
+
+            if ((e.key === ' ' || e.key.toLowerCase() === 'k') && player1 && !player1.actionButtonDown) {
+                 player1.actionButtonDown = true;
+                 player1.actionButtonStartTime = performance.now();
+                 player1.kickCharge = 0; // Reset charge on new press
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+            if ((e.key === ' ' || e.key.toLowerCase() === 'k') && player1) {
+                if (player1.actionButtonDown && player1.hasBall) { // If button was down and player has ball, it's a kick
+                    player1.isKicking = true; // Signal to kick in update loop
+                }
+                player1.actionButtonDown = false;
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupTouchControls();
+            resizeCanvas(); 
+            resetPositions(true); 
+            showMessage(isTouchDevice ? "Pixel Pitch Pro\nTap KICK to Start" : "Pixel Pitch Pro\nPress Enter to Start", -1);
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop); 
+        });
+    </script>
+</body>
+</html>
+```
