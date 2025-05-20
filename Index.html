@@ -269,6 +269,7 @@
         <div id="uiContainer">
             <div id="player1Score" class="score">P1: 0</div>
             <div id="timerDisplay">Time: 90</div>
+            <button id="muteButton" style="font-family: 'Press Start 2P', cursive; background-color: var(--primary-neon); border: 1px solid var(--text-light); color: var(--text-dark); padding: 5px 8px; font-size: clamp(10px, 2.5vw, 14px); cursor: pointer;">Mute</button>
             <div id="player2Score" class="score">P2: 0</div>
         </div>
 
@@ -297,6 +298,27 @@
     </div>
 
     <script>
+        let isMuted = false;
+        function playSoundEffect(soundUrl, volume = 1.0) {
+            if (isMuted) return;
+            try {
+                const audio = new Audio(soundUrl);
+                audio.volume = volume;
+                audio.play().catch(e => console.error("Error playing sound:", e));
+            } catch (e) {
+                console.error("Error creating audio:", e);
+            }
+        }
+
+        const soundEffects = {
+            kickHard: "https://www.zapsplat.com/wp-content/uploads/2015/sound-effects-12345/zapsplat_sport_soccer_kick_ball_hard_005.mp3",
+            kickSoft: "https://www.zapsplat.com/wp-content/uploads/2015/sound-effects-12345/zapsplat_sport_soccer_kick_ball_hard_005.mp3", // Same sound, will use lower volume
+            ballBounce: "https://www.zapsplat.com/wp-content/uploads/2015/sound-effects-78910/zapsplat_sport_soccer_ball_bounce_hard_grass_007.mp3", // For post/wall hits
+            goalCheer: "https://www.zapsplat.com/wp-content/uploads/2018/sound-effects-zapsplat/zapsplat_sport_football_stadium_crowd_chant_applause_goal_001.mp3",
+            whistleShort: "https://www.zapsplat.com/wp-content/uploads/2023/sound-effect-packs/referee_whistle/zapsplat_sport_referee_whistle_short_001.mp3",
+            whistleLong: "https://www.zapsplat.com/wp-content/uploads/2023/sound-effect-packs/referee_whistle/zapsplat_sport_referee_whistle_long_001.mp3"
+        };
+
         // --- Game Setup ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -821,6 +843,15 @@
 
                 createParticles(ball.x, ball.y, 3 + Math.floor(kickPower/KICK_STRENGTH * 5), player.color);
                 triggerScreenShake(kickPower / KICK_STRENGTH * 1.5, 5 + Math.floor(kickPower/KICK_STRENGTH*5) );
+                if (!isAI) {
+                    if (player.kickCharge > MAX_KICK_CHARGE * 0.4) { // Threshold for hard kick
+                        playSoundEffect(soundEffects.kickHard, 0.8);
+                    } else {
+                        playSoundEffect(soundEffects.kickSoft, 0.4); // Softer volume for soft kick
+                    }
+                } else {
+                    playSoundEffect(soundEffects.kickHard, 0.6); // AI kick sound
+                }
             }
             
             // Attempt to gain possession
@@ -921,7 +952,7 @@
                 ball.dy = (ball.dy / ballSpeed) * MAX_BALL_SPEED;
             }
 
-            const ballHitWall = () => createParticles(ball.x, ball.y, 2); // Fewer particles for wall hit
+            const ballHitWall = () => { createParticles(ball.x, ball.y, 2); playSoundEffect(soundEffects.ballBounce, 0.5); }; // Fewer particles for wall hit
 
             if (isPortraitMode) {
                 if (ball.x - BALL_RADIUS < 0 || ball.x + BALL_RADIUS > canvas.width) {
@@ -965,6 +996,7 @@
                             ball.dx *= -0.8; ball.dy *= 0.6;  
                             createParticles(ball.x, ball.y, 5, getComputedStyle(document.documentElement).getPropertyValue('--goal-lines').trim());
                             triggerScreenShake(2, 8);
+                            playSoundEffect(soundEffects.ballBounce, 0.7);
                             return true;
                          }
                     }
@@ -1061,6 +1093,7 @@
                         ball.controlledBy = null; 
                         if(player1) player1.hasBall = false; if(player2) player2.hasBall = false;
                         ball.lastTouchedBy = gk; 
+                        playSoundEffect(soundEffects.ballBounce, 0.6);
 
                         createParticles(ball.x, ball.y, 5, gk.color);
                         triggerScreenShake(1, 5);
@@ -1074,6 +1107,8 @@
             gameState = 'GOAL_SCORED';
             scoringPlayer.score++;
             updateScores();
+            playSoundEffect(soundEffects.goalCheer, 0.9);
+            playSoundEffect(soundEffects.whistleShort, 1.0);
             showMessage("GOAL!!!", 2200, true); 
             triggerScreenShake(4, 15); 
             createParticles(canvas.width / 2, canvas.height / 2, 25, getComputedStyle(document.documentElement).getPropertyValue('--particle-color-goal').trim()); 
@@ -1163,6 +1198,7 @@
             resetPositions(true); 
             startGameTimer();
             gameState = 'READY';
+            playSoundEffect(soundEffects.whistleLong, 0.8);
             showMessage("KICK OFF!", 1200);
             setTimeout(() => { if(gameState === 'READY') gameState = 'PLAYING'; }, 1200);
         }
@@ -1170,6 +1206,7 @@
         function endGame(winner = null) {
             gameState = 'GAME_OVER';
             clearInterval(gameTimerInterval);
+            playSoundEffect(soundEffects.whistleLong, 0.8);
             let message = "TIME UP! ";
             if (winner) message = `${winner} WINS!`;
             else {
@@ -1344,6 +1381,16 @@
             showMessage(isTouchDevice ? "Pixel Pitch Pro\nTap KICK to Start" : "Pixel Pitch Pro\nPress Enter to Start", -1);
             lastTime = performance.now();
             requestAnimationFrame(gameLoop); 
+
+            const muteButton = document.getElementById('muteButton');
+            if (muteButton) { // Ensure the button exists
+                muteButton.addEventListener('click', () => {
+                    isMuted = !isMuted;
+                    muteButton.textContent = isMuted ? "Unmute" : "Mute";
+                    // Optional: play a small UI click sound if you have one and it's desired even when muting other sounds
+                    // if (!isMuted) playSoundEffect(soundEffects.uiClick, 0.5); // Example
+                });
+            }
         });
     </script>
 </body>
