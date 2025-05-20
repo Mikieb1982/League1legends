@@ -1,5 +1,3 @@
-
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,26 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pixel Pitch Pro - Sensi Style</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <style>
         :root {
             --primary-neon: #00ffff; /* Cyan - General UI */
             /* Team 1 Colors - Blue */
             --player1-neon: #0099FF; /* Vibrant Blue */
-            --gk1-neon: #66CCFF;    /* Lighter Blue for GK1 */
+            --gk1-neon: #66CCFF;     /* Lighter Blue for GK1 */
             /* Team 2 Colors - Red */
             --player2-neon: #FF3333; /* Strong Red */
-            --gk2-neon: #FF7777;    /* Lighter Red for GK2 */
+            --gk2-neon: #FF7777;     /* Lighter Red for GK2 */
             
-            --ball-neon: #ffff00;   /* Yellow */
+            --ball-neon: #ffff00;     /* Yellow */
             --background-dark: #0d0d1a;
-            --pitch-green: #1a591a; /* Darker, more classic green */
-            --pitch-lines: rgba(255, 255, 255, 0.5); /* Slightly more opaque lines */
-            --pitch-scanlines: rgba(0, 0, 0, 0.05); /* Subtler scanlines */
+            --pitch-green: #1a591a; 
+            --pitch-lines: rgba(255, 255, 255, 0.5); 
+            --pitch-scanlines: rgba(0, 0, 0, 0.05); 
             --goal-lines: #FFFFFF;
             --ui-panel-bg: rgba(10, 20, 40, 0.7);
             --text-light: #e0e0e0;
             --text-dark: #1a1a2e;
-            --joystick-base-bg: rgba(0, 100, 100, 0.4); 
+            --joystick-base-bg: rgba(0, 100, 100, 0.4);  
             --joystick-nub-border: rgba(255, 255, 255, 0.8);
             
             --action-button-bg-start: rgba(0, 153, 255, 0.75);
@@ -36,6 +35,9 @@
             
             --particle-color-default: rgba(220, 220, 220, 0.7);
             --particle-color-goal: var(--ball-neon);
+            --gemini-button-bg: #ff69b4; /* Hot pink for Gemini buttons */
+            --gemini-button-text: #0d0d1a;
+            --gemini-button-border: #ff1493;
         }
 
         html, body {
@@ -71,10 +73,11 @@
 
         #uiContainer {
             display: flex;
+            flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
             justify-content: space-around;
             align-items: center;
             width: 100%;
-            max-width: 800px;
+            max-width: 800px; 
             padding: 8px 10px;
             box-sizing: border-box;
             background-color: var(--ui-panel-bg);
@@ -84,16 +87,65 @@
             flex-shrink: 0;
             margin-bottom: 5px;
         }
+        
+        .ui-button {
+            font-family: 'Press Start 2P', cursive;
+            background-color: var(--primary-neon); 
+            border: 1px solid var(--text-light); 
+            color: var(--text-dark); 
+            padding: 5px 8px; 
+            font-size: clamp(8px, 2vw, 12px); /* Adjusted size */
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 2px 4px; /* Spacing for buttons */
+            text-shadow: none;
+        }
+        .gemini-button {
+            background-color: var(--gemini-button-bg);
+            color: var(--gemini-button-text);
+            border-color: var(--gemini-button-border);
+            box-shadow: 0 0 5px var(--gemini-button-border);
+        }
+         .gemini-button:disabled {
+            background-color: #5e5458; /* Darker pink when disabled */
+            color: #aaa;
+            border-color: #777;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
 
         .score, #timerDisplay {
-            font-size: clamp(14px, 3.5vw, 20px);
+            font-size: clamp(12px, 3vw, 18px); /* Adjusted size */
             color: var(--primary-neon);
             text-shadow: 0 0 5px var(--primary-neon), 0 0 10px var(--primary-neon);
             padding: 5px;
+            margin: 2px 5px; /* Spacing for score displays */
+            white-space: nowrap; /* Prevent names from wrapping too soon */
         }
 
         #player1Score { color: var(--player1-neon); text-shadow: 0 0 5px var(--player1-neon), 0 0 10px var(--player1-neon); }
         #player2Score { color: var(--player2-neon); text-shadow: 0 0 5px var(--player2-neon), 0 0 10px var(--player2-neon); }
+
+        #banterDisplay {
+            width: 100%;
+            max-width: 780px; /* Slightly less than uiContainer */
+            padding: 5px 10px;
+            box-sizing: border-box;
+            background-color: rgba(10, 20, 40, 0.6);
+            border-radius: 6px;
+            border: 1px solid var(--primary-neon);
+            box-shadow: 0 0 8px var(--primary-neon);
+            color: var(--primary-neon);
+            font-size: clamp(10px, 2.5vw, 14px);
+            text-align: center;
+            margin-top: 3px;
+            margin-bottom: 3px;
+            min-height: 20px; /* Ensure it has some height even when empty */
+            display: none; /* Hidden by default */
+            text-shadow: 0 0 3px var(--primary-neon);
+        }
+
 
         #gameContainer {
             border: 3px solid var(--primary-neon);
@@ -105,15 +157,15 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: auto;
-            height: auto;
+            width: auto; 
+            height: auto; 
             overflow: hidden; 
         }
         
         #canvasWrapper { 
             position: relative;
-            width: 100%;
-            height: 100%;
+            width: 100%; 
+            height: 100%; 
             display: flex;
             align-items: center;
             justify-content: center;
@@ -145,16 +197,17 @@
             border-radius: 10px;
             text-align: center;
             z-index: 10;
-            display: none;
+            display: none; 
+            opacity: 0; 
             max-width: 80%;
             box-shadow: 0 0 15px var(--ball-neon);
             transition: transform 0.1s ease-out, opacity 0.1s ease-out;
         }
 
         #messageDisplay.show { 
-            display: block;
+            display: block; 
             opacity: 1;
-            transform: translate(-50%, -50%) scale(1.1);
+            transform: translate(-50%, -50%) scale(1.1); 
         }
         #messageDisplay.hide {
             opacity: 0;
@@ -187,18 +240,18 @@
             width: 100%;
             padding: 0 clamp(10px, 3vw, 20px); 
             box-sizing: border-box;
-            display: flex;
+            display: flex; 
             justify-content: space-between;
             align-items: flex-end;
             z-index: 20;
-            pointer-events: none;
+            pointer-events: none; 
         }
 
         .touch-control-area {
             display: flex;
             align-items: center;
             justify-content: center;
-            pointer-events: auto;
+            pointer-events: auto; 
         }
         
         #joystickArea {
@@ -252,8 +305,8 @@
             text-align: center;
             opacity: 0.85;
             margin: 5px;
-            user-select: none;
-            pointer-events: auto;
+            user-select: none; 
+            pointer-events: auto; 
             transition: transform 0.05s ease-out, box-shadow 0.05s ease-out;
         }
         .action-button:active {
@@ -269,10 +322,12 @@
         <div id="uiContainer">
             <div id="player1Score" class="score">P1: 0</div>
             <div id="timerDisplay">Time: 90</div>
-            <button id="muteButton" style="font-family: 'Press Start 2P', cursive; background-color: var(--primary-neon); border: 1px solid var(--text-light); color: var(--text-dark); padding: 5px 8px; font-size: clamp(10px, 2.5vw, 14px); cursor: pointer;">Mute</button>
+            <button id="muteButton" class="ui-button">Mute</button>
+            <button id="teamNameButton" class="ui-button gemini-button">✨ New Names</button>
+            <button id="banterButton" class="ui-button gemini-button">✨ Get Banter</button>
             <div id="player2Score" class="score">P2: 0</div>
         </div>
-
+        <div id="banterDisplay"></div> 
         <div id="gameContainer">
             <div id="canvasWrapper"> 
                 <canvas id="gameCanvas"></canvas>
@@ -287,7 +342,7 @@
         </div>
     </div>
 
-    <div id="touchControlsContainer">
+    <div id="touchControlsContainer" style="display: none;"> 
         <div id="joystickArea" class="touch-control-area">
             <div id="joystickBase"></div>
             <div id="joystickNub"></div>
@@ -298,26 +353,308 @@
     </div>
 
     <script>
-        let isMuted = false;
-        function playSoundEffect(soundUrl, volume = 1.0) {
-            if (isMuted) return;
+        // --- Gemini API Integration & Usage Limit ---
+        const banterDisplay = document.getElementById('banterDisplay');
+        const teamNameButton = document.getElementById('teamNameButton');
+        const banterButton = document.getElementById('banterButton');
+        let isGeneratingTeamName = false;
+        let isGeneratingBanter = false;
+
+        let apiCallCount = 0;
+        const MAX_API_CALLS_PER_GAME = 5; 
+        let geminiFeaturesDisabled = false;
+
+        function checkAndDisableGeminiFeatures() {
+            if (apiCallCount >= MAX_API_CALLS_PER_GAME) {
+                geminiFeaturesDisabled = true;
+                if (teamNameButton) teamNameButton.disabled = true;
+                if (banterButton) banterButton.disabled = true;
+                banterDisplay.style.display = 'block';
+                banterDisplay.textContent = "✨ Gemini features limit reached for this game. Restart for more! ✨";
+                console.warn(`Max API calls (${MAX_API_CALLS_PER_GAME}) reached.`);
+                return true;
+            }
+            return false;
+        }
+
+        function resetGeminiUsage() {
+            apiCallCount = 0;
+            geminiFeaturesDisabled = false;
+            if (teamNameButton) teamNameButton.disabled = false;
+            if (banterButton) banterButton.disabled = false;
+        }
+
+
+        async function callGemini(prompt, isJson = false, schema = null) {
+            if (checkAndDisableGeminiFeatures()) {
+                return null; 
+            }
+
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            let payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }]
+            };
+
+            if (isJson && schema) {
+                payload.generationConfig = {
+                    responseMimeType: "application/json",
+                    responseSchema: schema
+                };
+            }
+            
             try {
-                const audio = new Audio(soundUrl);
-                audio.volume = volume;
-                audio.play().catch(e => console.error("Error playing sound:", e));
-            } catch (e) {
-                console.error("Error creating audio:", e);
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                apiCallCount++; 
+                console.log(`Gemini API Call #${apiCallCount}/${MAX_API_CALLS_PER_GAME}`);
+
+
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    console.error("Gemini API Error Response:", errorBody);
+                    throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
+                }
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const rawText = result.candidates[0].content.parts[0].text;
+                    if (isJson) {
+                        try {
+                            return JSON.parse(rawText);
+                        } catch (e) {
+                            console.error("Failed to parse JSON response:", rawText, e);
+                            throw new Error("Invalid JSON response from API.");
+                        }
+                    }
+                    return rawText;
+                } else {
+                    console.error("Unexpected Gemini API response structure:", result);
+                    throw new Error("Unexpected response structure from API.");
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                return null; 
             }
         }
 
-        const soundEffects = {
-            kickHard: "https://www.zapsplat.com/wp-content/uploads/2015/sound-effects-12345/zapsplat_sport_soccer_kick_ball_hard_005.mp3",
-            kickSoft: "https://www.zapsplat.com/wp-content/uploads/2015/sound-effects-12345/zapsplat_sport_soccer_kick_ball_hard_005.mp3", // Same sound, will use lower volume
-            ballBounce: "https://www.zapsplat.com/wp-content/uploads/2015/sound-effects-78910/zapsplat_sport_soccer_ball_bounce_hard_grass_007.mp3", // For post/wall hits
-            goalCheer: "https://www.zapsplat.com/wp-content/uploads/2018/sound-effects-zapsplat/zapsplat_sport_football_stadium_crowd_chant_applause_goal_001.mp3",
-            whistleShort: "https://www.zapsplat.com/wp-content/uploads/2023/sound-effect-packs/referee_whistle/zapsplat_sport_referee_whistle_short_001.mp3",
-            whistleLong: "https://www.zapsplat.com/wp-content/uploads/2023/sound-effect-packs/referee_whistle/zapsplat_sport_referee_whistle_long_001.mp3"
-        };
+        async function generateTeamNames() {
+            if (isGeneratingTeamName || geminiFeaturesDisabled) return;
+            if (checkAndDisableGeminiFeatures()) return; 
+
+            isGeneratingTeamName = true;
+            teamNameButton.disabled = true;
+            teamNameButton.textContent = "Naming...";
+            banterDisplay.style.display = 'block';
+            banterDisplay.textContent = "✨ Conjuring epic team names...";
+
+            const prompt = "Generate two distinct, short, and funny retro 8-bit video game style soccer team names. Examples: 'Pixel Pumas', 'Byte Breakers'. Provide them as a JSON array of two strings.";
+            const schema = {
+                type: "ARRAY",
+                items: { type: "STRING" },
+                minItems: 2,
+                maxItems: 2
+            };
+
+            try {
+                const names = await callGemini(prompt, true, schema);
+                if (names && names.length === 2) {
+                    if (player1) player1.teamName = names[0];
+                    if (player2) player2.teamName = names[1];
+                    updateScores(); 
+                    banterDisplay.textContent = `✨ Teams: ${names[0]} vs ${names[1]}! ✨`;
+                } else if (!geminiFeaturesDisabled) { 
+                    banterDisplay.textContent = "Couldn't get new names. Try again!";
+                    if(player1) player1.teamName = "P1";
+                    if(player2) player2.teamName = "P2";
+                    updateScores();
+                }
+            } catch (error) {
+                 if (!geminiFeaturesDisabled) banterDisplay.textContent = "Error fetching names. Using defaults.";
+                 if(player1) player1.teamName = "P1";
+                 if(player2) player2.teamName = "P2";
+                 updateScores();
+            } finally {
+                isGeneratingTeamName = false;
+                if (!geminiFeaturesDisabled) {
+                    teamNameButton.disabled = false;
+                    teamNameButton.textContent = "✨ New Names";
+                }
+            }
+        }
+        
+        async function getGameBanter() {
+            if (isGeneratingBanter || geminiFeaturesDisabled) return;
+            if (checkAndDisableGeminiFeatures()) return; 
+
+            isGeneratingBanter = true;
+            banterButton.disabled = true;
+            banterButton.textContent = "Thinking...";
+            banterDisplay.style.display = 'block';
+            banterDisplay.textContent = "✨ Commentator is warming up...";
+
+            let p1Name = (player1 && player1.teamName) ? player1.teamName : "Player 1";
+            let p2Name = (player2 && player2.teamName) ? player2.teamName : "Player 2";
+            let p1s = (player1 && player1.score !== undefined) ? player1.score : 0;
+            let p2s = (player2 && player2.score !== undefined) ? player2.score : 0;
+            let gameTime = timeLeft;
+            let currentBallHolder = "Nobody";
+            if (ball && ball.controlledBy) {
+                currentBallHolder = ball.controlledBy === player1 ? p1Name : p2Name;
+            }
+            
+            const prompt = `Generate a very short, punchy, and exciting retro arcade soccer game commentary line (max 15 words). 
+            Current game state: ${p1Name} score: ${p1s}, ${p2Name} score: ${p2s}. Time left: ${gameTime}s. ${currentBallHolder} has the ball. 
+            Focus on excitement or a key aspect of the current situation. Examples: "What a shot by ${p1Name}!", "${p2Name} is on a breakaway!", "Tense final seconds!", "Incredible save!".`;
+
+            try {
+                const banter = await callGemini(prompt);
+                if (banter) {
+                    banterDisplay.textContent = `✨ ${banter} ✨`;
+                } else if (!geminiFeaturesDisabled) {
+                    banterDisplay.textContent = "Commentator's mic is fuzzy. Try again!";
+                }
+            } catch (error) {
+                 if (!geminiFeaturesDisabled) banterDisplay.textContent = "Commentator is on a break. Try later!";
+            } finally {
+                isGeneratingBanter = false;
+                 if (!geminiFeaturesDisabled) {
+                    banterButton.disabled = false;
+                    banterButton.textContent = "✨ Get Banter";
+                }
+            }
+        }
+
+
+        // --- Sound Engine (Tone.js) ---
+        let isMuted = false;
+        let synths = {}; 
+        let audioContextStarted = false; 
+        let synthsInitialized = false;   
+
+        async function initAudio() {
+            if (typeof Tone === 'undefined') {
+                console.error("Tone.js not loaded!");
+                return;
+            }
+
+            if (!audioContextStarted) {
+                if (Tone.context.state !== 'running') {
+                    try {
+                        await Tone.start();
+                        console.log("Audio Context successfully started with Tone.js");
+                        audioContextStarted = true; 
+                    } catch (e) {
+                        console.error("Tone.start() failed:", e);
+                        return; 
+                    }
+                } else {
+                    audioContextStarted = true; 
+                }
+            }
+
+            if (synthsInitialized || !audioContextStarted) { 
+                return;
+            }
+
+            console.log("Initializing synths...");
+
+            try {
+                synths.kick = new Tone.MembraneSynth({
+                    pitchDecay: 0.03,
+                    octaves: 6,
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 0.001, decay: 0.3, sustain: 0.01, release: 0.2 }
+                }).toDestination();
+
+                synths.ballBounce = new Tone.PluckSynth({
+                    attackNoise: 1,
+                    dampening: 2000,
+                    resonance: 0.5,
+                    release: 0.5
+                }).toDestination();
+                synths.ballBounce.volume.value = -10;
+
+                synths.goalCheer = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "sawtooth" },
+                    envelope: { attack: 0.1, decay: 0.5, sustain: 0.3, release: 1 },
+                    volume: -12
+                }).toDestination();
+                const lfo = new Tone.LFO("4n", 400, 1000).start();
+                const filter = new Tone.Filter(400, "lowpass").toDestination();
+                lfo.connect(filter.frequency);
+                synths.goalCheer.connect(filter);
+
+                synths.whistle = new Tone.Synth({
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.3 },
+                    volume: -5
+                }).toDestination();
+
+                synthsInitialized = true; 
+                console.log("Synths initialized successfully.");
+            } catch (e) {
+                console.error("Error during synth initialization:", e);
+                synthsInitialized = false; 
+            }
+        }
+
+        function playSoundEffect(soundName, options = {}) {
+            if (isMuted || !audioContextStarted || !synthsInitialized || !synths[soundName]) {
+                return;
+            }
+            
+            try {
+                const now = Tone.now();
+                switch (soundName) {
+                    case 'kickHard': 
+                        synths.kick.triggerAttackRelease("C2", "8n", now, options.velocity || 0.9); 
+                        break;
+                    case 'kickSoft': 
+                        synths.kick.triggerAttackRelease("C2", "16n", now, options.velocity || 0.5); 
+                        break;
+                    case 'ballBounce':
+                        if (synths.ballBounce && !synths.ballBounce.disposed) {
+                            const noteToPlay = options.note || "C4";
+                            synths.ballBounce.triggerAttackRelease(noteToPlay, "16n", Tone.now() + 0.01);
+                        } else {
+                            console.warn("ballBounce synth not available or disposed.");
+                        }
+                        break;
+                    case 'goalCheer': 
+                        synths.goalCheer.triggerAttackRelease(["C4", "E4", "G4", "C5"], "1n", now); 
+                        synths.goalCheer.triggerAttackRelease(["D4", "F#4", "A4", "D5"], "1n", now + 0.5); 
+                        break;
+                    case 'whistleShort': 
+                        synths.whistle.triggerAttackRelease("C6", "16n", now); 
+                        break;
+                    case 'whistleLong': 
+                        synths.whistle.triggerAttackRelease("A5", "4n", now); 
+                        synths.whistle.frequency.rampTo("D6", "8n", now + 0.05); 
+                        break;
+                }
+            } catch (e) {
+                console.error(`Error playing sound ${soundName}:`, e);
+                if (synths[soundName]) {
+                    try {
+                        console.error(`State of synth ${soundName}:`, JSON.stringify(synths[soundName].get(), null, 2));
+                        console.error(`Synth ${soundName} disposed: ${synths[soundName].disposed}`);
+                    } catch (stringifyError) {
+                        console.error(`Could not stringify synth ${soundName} state.`);
+                    }
+                }
+            }
+        }
+        // --- End Sound Engine ---
+
 
         // --- Game Setup ---
         const canvas = document.getElementById('gameCanvas');
@@ -338,308 +675,179 @@
         const joystickNub = document.getElementById('joystickNub');
         const kickButton = document.getElementById('kickButton');
 
-        const LANDSCAPE_ASPECT_RATIO = 16 / 10; // More Sensi-like wider aspect
+        const LANDSCAPE_ASPECT_RATIO = 16 / 10; 
         const PORTRAIT_ASPECT_RATIO = 10 / 16; 
         let currentAspectRatio = LANDSCAPE_ASPECT_RATIO;
         let isPortraitMode = false;
 
-        const BASE_PITCH_WIDTH_LANDSCAPE = 1000; // Larger logical width for more "zoomed out" feel
+        const BASE_PITCH_WIDTH_LANDSCAPE = 1000; 
         const BASE_PITCH_HEIGHT_PORTRAIT = 1000; 
         let PITCH_LOGICAL_WIDTH; 
         let PITCH_LOGICAL_HEIGHT;
         
         let scaleFactor = 1;
 
-        // Sensi-style constants will be smaller relative to pitch
         let PLAYER_RADIUS, GOALKEEPER_RADIUS, BALL_RADIUS, GOAL_WIDTH, GOAL_DEPTH, CENTER_CIRCLE_RADIUS;
         let PLAYER_SPEED, GOALKEEPER_SPEED, PLAYER_SPRINT_MULTIPLIER, KICK_STRENGTH, MAX_BALL_SPEED, PASS_STRENGTH;
         let PLAYER_INERTIA, BALL_INERTIA;
 
-        // Dribbling constants
         let DRIBBLING_DISTANCE_THRESHOLD, DRIBBLING_OFFSET_DISTANCE;
-        const KICK_CHARGE_RATE = 0.06; // How fast kick power charges per frame (assuming 60fps)
+        const KICK_CHARGE_RATE = 0.06; 
         const MAX_KICK_CHARGE = 1.0;
-        const MIN_KICK_POWER_FACTOR = 0.25; // For a tap (pass)
+        const MIN_KICK_POWER_FACTOR = 0.25; 
         const AI_KICK_POWER_FACTOR = 0.7;
 
-
         let particles = [];
-        const MAX_PARTICLES = 30; // Reduced for cleaner look
+        const MAX_PARTICLES = 30; 
         const PARTICLE_LIFESPAN = 25; 
-
         let ballTrail = [];
-        const BALL_TRAIL_LENGTH = 4; // Shorter trail
-
+        const BALL_TRAIL_LENGTH = 4; 
         let screenShakeMagnitude = 0;
         let screenShakeDuration = 0;
 
-
         function updateScaledConstants() {
-            // Sensi Style: Smaller entities, faster relative speeds
             PLAYER_RADIUS = 6 * scaleFactor;
             GOALKEEPER_RADIUS = 7 * scaleFactor;
             BALL_RADIUS = 4 * scaleFactor;
-            
             if (isPortraitMode) {
-                GOAL_WIDTH = PITCH_LOGICAL_WIDTH * 0.45 * scaleFactor; 
-                GOAL_DEPTH = 18 * scaleFactor; 
+                GOAL_WIDTH = PITCH_LOGICAL_WIDTH * 0.45 * scaleFactor; GOAL_DEPTH = 18 * scaleFactor; 
             } else {
-                GOAL_WIDTH = 150 * scaleFactor; // Wider goals relative to tiny players
-                GOAL_DEPTH = 18 * scaleFactor;
+                GOAL_WIDTH = 150 * scaleFactor; GOAL_DEPTH = 18 * scaleFactor;
             }
             CENTER_CIRCLE_RADIUS = (isPortraitMode ? PITCH_LOGICAL_WIDTH : PITCH_LOGICAL_HEIGHT) * 0.08 * scaleFactor;
-
-
-            PLAYER_SPEED = 3.5 * scaleFactor; // Faster base movement
-            GOALKEEPER_SPEED = 3.0 * scaleFactor;
-            PLAYER_SPRINT_MULTIPLIER = 1.45; 
-            KICK_STRENGTH = 18 * scaleFactor; // Max kick strength
-            PASS_STRENGTH = KICK_STRENGTH * MIN_KICK_POWER_FACTOR * 1.5; // Tap pass strength
-            MAX_BALL_SPEED = 22 * scaleFactor; 
-
-            PLAYER_INERTIA = 0.70; // More responsive, less slide
-            BALL_INERTIA = 0.965; // Ball slows a bit quicker, less floaty
-
+            PLAYER_SPEED = 3.5 * scaleFactor; GOALKEEPER_SPEED = 3.0 * scaleFactor;
+            PLAYER_SPRINT_MULTIPLIER = 1.45; KICK_STRENGTH = 18 * scaleFactor; 
+            PASS_STRENGTH = KICK_STRENGTH * MIN_KICK_POWER_FACTOR * 1.5; MAX_BALL_SPEED = 22 * scaleFactor; 
+            PLAYER_INERTIA = 0.70; BALL_INERTIA = 0.965; 
             DRIBBLING_DISTANCE_THRESHOLD = (PLAYER_RADIUS + BALL_RADIUS + 1.5 * scaleFactor);
             DRIBBLING_OFFSET_DISTANCE = PLAYER_RADIUS + BALL_RADIUS * 0.3;
         }
 
         function resizeCanvas() {
-            const screenWidth = window.innerWidth;
-            const screenHeight = window.innerHeight;
-
+            const screenWidth = window.innerWidth; const screenHeight = window.innerHeight;
             isPortraitMode = screenHeight > screenWidth;
             currentAspectRatio = isPortraitMode ? PORTRAIT_ASPECT_RATIO : LANDSCAPE_ASPECT_RATIO;
-
             if (isPortraitMode) {
-                PITCH_LOGICAL_HEIGHT = BASE_PITCH_HEIGHT_PORTRAIT;
-                PITCH_LOGICAL_WIDTH = PITCH_LOGICAL_HEIGHT * currentAspectRatio;
+                PITCH_LOGICAL_HEIGHT = BASE_PITCH_HEIGHT_PORTRAIT; PITCH_LOGICAL_WIDTH = PITCH_LOGICAL_HEIGHT * currentAspectRatio;
             } else {
-                PITCH_LOGICAL_WIDTH = BASE_PITCH_WIDTH_LANDSCAPE;
-                PITCH_LOGICAL_HEIGHT = PITCH_LOGICAL_WIDTH / currentAspectRatio;
+                PITCH_LOGICAL_WIDTH = BASE_PITCH_WIDTH_LANDSCAPE; PITCH_LOGICAL_HEIGHT = PITCH_LOGICAL_WIDTH / currentAspectRatio;
             }
-            
-            let availableWidth = gameWrapper.clientWidth;
-            let availableHeight = gameWrapper.clientHeight;
-
+            let availableWidth = gameWrapper.clientWidth; let availableHeight = gameWrapper.clientHeight;
             availableHeight -= uiContainer.offsetHeight;
-            if (controlsInfoDisplay.style.display !== 'none') {
-                availableHeight -= controlsInfoDisplay.offsetHeight;
-            }
-            if (isTouchDevice && touchControlsContainer.style.display !== 'none') {
-                availableHeight -= window.innerHeight * 0.18; 
-            }
+            if (banterDisplay.style.display !== 'none') availableHeight -= banterDisplay.offsetHeight; 
+            if (controlsInfoDisplay && controlsInfoDisplay.style.display !== 'none') availableHeight -= controlsInfoDisplay.offsetHeight;
+            if (isTouchDevice && touchControlsContainer && touchControlsContainer.style.display !== 'none') availableHeight -= window.innerHeight * 0.18;
             availableHeight -= 15; 
-
             let newCanvasWidth, newCanvasHeight;
-
             if (availableWidth / currentAspectRatio <= availableHeight) {
-                newCanvasWidth = availableWidth * 0.98; 
-                newCanvasHeight = newCanvasWidth / currentAspectRatio;
+                newCanvasWidth = availableWidth * 0.98; newCanvasHeight = newCanvasWidth / currentAspectRatio;
             } else {
-                newCanvasHeight = availableHeight * 0.98; 
-                newCanvasWidth = newCanvasHeight * currentAspectRatio;
+                newCanvasHeight = availableHeight * 0.98; newCanvasWidth = newCanvasHeight * currentAspectRatio;
             }
-            
-            const maxPracticalWidth = 1200; 
-            const maxPracticalHeight = 1200; 
+            const maxPracticalWidth = 1200; const maxPracticalHeight = 1200; 
             if (!isPortraitMode && newCanvasWidth > maxPracticalWidth) {
-                newCanvasWidth = maxPracticalWidth;
-                newCanvasHeight = newCanvasWidth / currentAspectRatio;
+                newCanvasWidth = maxPracticalWidth; newCanvasHeight = newCanvasWidth / currentAspectRatio;
             } else if (isPortraitMode && newCanvasHeight > maxPracticalHeight) {
-                newCanvasHeight = maxPracticalHeight;
-                newCanvasWidth = newCanvasHeight * currentAspectRatio;
+                newCanvasHeight = maxPracticalHeight; newCanvasWidth = newCanvasHeight * currentAspectRatio;
             }
-            
             newCanvasWidth = Math.max(isPortraitMode ? 150 : 200, newCanvasWidth);
             newCanvasHeight = Math.max(isPortraitMode ? 200 : 150, newCanvasHeight);
-
-            canvas.width = newCanvasWidth;
-            canvas.height = newCanvasHeight;
-            
-            canvasWrapper.style.width = canvas.width + 'px'; 
-            canvasWrapper.style.height = canvas.height + 'px';
-
+            canvas.width = newCanvasWidth; canvas.height = newCanvasHeight;
+            canvasWrapper.style.width = canvas.width + 'px'; canvasWrapper.style.height = canvas.height + 'px';
             scaleFactor = isPortraitMode ? (canvas.height / PITCH_LOGICAL_HEIGHT) : (canvas.width / PITCH_LOGICAL_WIDTH);
             updateScaledConstants(); 
-
             uiContainer.style.width = Math.min(canvas.width, parseFloat(getComputedStyle(uiContainer).maxWidth)) + 'px';
-
-            if (gameState !== 'INITIAL') { 
-                resetPositions(false); 
-            }
+            if (gameState !== 'INITIAL') resetPositions(false); 
         }
 
         window.addEventListener('resize', resizeCanvas);
         window.addEventListener('orientationchange', resizeCanvas);
 
-
-        const GAME_DURATION_SECONDS = 90;
-        const AI_SPEED_MODIFIER = 0.65; // AI slightly slower than player to give player an edge
-        const AI_SPRINT_MODIFIER = 1.2;
-       
+        const GAME_DURATION_SECONDS = 90; const AI_SPEED_MODIFIER = 0.65; const AI_SPRINT_MODIFIER = 1.2;
         let player1, player2, ball, goalkeeper1, goalkeeper2;
         let keys = {};
-        let touchState = {
-            joystickActive: false,
-            joystickStartX: 0, joystickStartY: 0,
-            joystickCurrentX: 0, joystickCurrentY: 0,
-            joystickTouchId: null,
-            actionButtonDown: false,
-            actionButtonStartTime: 0
-        };
+        let touchState = { joystickActive: false, joystickStartX: 0, joystickStartY: 0, joystickCurrentX: 0, joystickCurrentY: 0, joystickTouchId: null, actionButtonDown: false, actionButtonStartTime: 0 };
         const JOYSTICK_DEADZONE = 0.15;
+        let timeLeft = GAME_DURATION_SECONDS; let gameTimerInterval; let gameState = 'INITIAL'; 
+        let isTouchDevice = false; let lastTime = 0; const KICK_TAP_THRESHOLD_MS = 180; 
 
-        let timeLeft = GAME_DURATION_SECONDS;
-        let gameTimerInterval;
-        let gameState = 'INITIAL';
-        let isTouchDevice = false;
-        let lastTime = 0;
-        const KICK_TAP_THRESHOLD_MS = 180; // Time in ms to distinguish tap from hold for kick
-
-        function distance(x1, y1, x2, y2) {
-            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        }
+        function distance(x1, y1, x2, y2) { return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2); }
 
         function showMessage(text, duration = 2000, isGoal = false) {
             messageDisplay.textContent = text;
             messageDisplay.classList.remove('hide', 'goal-celebration');
             messageDisplay.classList.add('show');
-            if (isGoal) {
-                messageDisplay.classList.add('goal-celebration');
-            }
-
+            messageDisplay.style.display = 'block'; 
+            if (isGoal) messageDisplay.classList.add('goal-celebration');
             if (duration > 0) {
                 setTimeout(() => {
-                    messageDisplay.classList.remove('show');
-                    messageDisplay.classList.add('hide');
-                    setTimeout(() => { 
-                         if (messageDisplay.classList.contains('hide')) { 
-                            messageDisplay.style.display = 'none';
-                            messageDisplay.classList.remove('hide'); 
-                         }
-                    }, 150);
-
-                    if (gameState === 'GOAL_SCORED') {
-                        resetPositions(false); 
-                        gameState = 'READY';
-                        setTimeout(() => { if (gameState === 'READY') gameState = 'PLAYING';}, 1000);
-                    }
+                    messageDisplay.classList.remove('show'); messageDisplay.classList.add('hide');
+                    setTimeout(() => { if (messageDisplay.classList.contains('hide')) { messageDisplay.style.display = 'none'; messageDisplay.classList.remove('hide'); } }, 150);
+                    if (gameState === 'GOAL_SCORED') { resetPositions(false); gameState = 'READY'; setTimeout(() => { if (gameState === 'READY') gameState = 'PLAYING';}, 1000); }
                 }, duration);
-            } else { 
-                 messageDisplay.style.display = 'block'; 
-            }
+            } else { messageDisplay.style.display = 'block'; }
         }
         
-        function triggerScreenShake(magnitude, duration) {
-            screenShakeMagnitude = magnitude * scaleFactor;
-            screenShakeDuration = duration;
-        }
+        function triggerScreenShake(magnitude, duration) { screenShakeMagnitude = magnitude * scaleFactor; screenShakeDuration = duration; }
 
         function createParticles(x, y, count, color = getComputedStyle(document.documentElement).getPropertyValue('--particle-color-default').trim()) {
             for (let i = 0; i < count; i++) {
                 if (particles.length < MAX_PARTICLES) {
-                    particles.push({
-                        x: x, y: y,
-                        dx: (Math.random() - 0.5) * (3 * scaleFactor), // Smaller particle speed
-                        dy: (Math.random() - 0.5) * (3 * scaleFactor),
-                        size: Math.random() * (2 * scaleFactor) + (0.5 * scaleFactor), // Smaller particles
-                        life: PARTICLE_LIFESPAN * (Math.random()*0.5 + 0.5), // Vary lifespan
-                        color: color
-                    });
+                    particles.push({ x: x, y: y, dx: (Math.random() - 0.5) * (3 * scaleFactor), dy: (Math.random() - 0.5) * (3 * scaleFactor), size: Math.random() * (2 * scaleFactor) + (0.5 * scaleFactor), life: PARTICLE_LIFESPAN * (Math.random()*0.5 + 0.5), color: color });
                 }
             }
         }
 
         function updateAndDrawParticles() {
             for (let i = particles.length - 1; i >= 0; i--) {
-                let p = particles[i];
-                p.x += p.dx; p.y += p.dy;
-                p.life--; p.size *= 0.96; 
-                if (p.life <= 0 || p.size < 0.2 * scaleFactor) {
-                    particles.splice(i, 1);
-                } else {
-                    ctx.fillStyle = p.color.replace(/[\d\.]+\)$/g, `${Math.max(0,(p.life / PARTICLE_LIFESPAN)) * 0.7})`); 
-                    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
-                }
+                let p = particles[i]; p.x += p.dx; p.y += p.dy; p.life--; p.size *= 0.96; 
+                if (p.life <= 0 || p.size < 0.2 * scaleFactor) particles.splice(i, 1);
+                else { ctx.fillStyle = p.color.replace(/[\d\.]+\)$/g, `${Math.max(0,(p.life / PARTICLE_LIFESPAN)) * 0.7})`); ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); }
             }
         }
         
         function updateAndDrawBallTrail() {
-            if (Math.sqrt(ball.dx**2 + ball.dy**2) > KICK_STRENGTH * 0.5) { // Only show trail for hard kicks
+            if (!ball) return;
+            if (Math.sqrt(ball.dx**2 + ball.dy**2) > KICK_STRENGTH * 0.5) { 
                 ballTrail.push({ x: ball.x, y: ball.y, radius: BALL_RADIUS * 0.8 });
-                if (ballTrail.length > BALL_TRAIL_LENGTH) {
-                    ballTrail.shift(); 
-                }
-
+                if (ballTrail.length > BALL_TRAIL_LENGTH) ballTrail.shift(); 
                 for (let i = 0; i < ballTrail.length; i++) {
-                    const point = ballTrail[i];
-                    const opacity = (i / ballTrail.length) * 0.3; 
-                    const radius = point.radius * (i / ballTrail.length); 
-                    ctx.beginPath(); ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(255, 255, 180, ${opacity})`; 
-                    ctx.fill();
+                    const point = ballTrail[i]; const opacity = (i / ballTrail.length) * 0.3; const radius = point.radius * (i / ballTrail.length); 
+                    ctx.beginPath(); ctx.arc(point.x, point.y, radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(255, 255, 180, ${opacity})`; ctx.fill();
                 }
-            } else {
-                ballTrail = []; // Clear trail if ball is slow
-            }
+            } else ballTrail = []; 
         }
 
         function updateScores() {
             if(player1 && player2) { 
-                player1ScoreDisplay.textContent = `P1: ${player1.score}`;
-                player2ScoreDisplay.textContent = `P2: ${player2.score}`;
+                let p1Name = (player1.teamName && player1.teamName !== "P1") ? player1.teamName : "P1";
+                let p2Name = (player2.teamName && player2.teamName !== "P2") ? player2.teamName : "P2";
+                player1ScoreDisplay.textContent = `${p1Name}: ${player1.score}`;
+                player2ScoreDisplay.textContent = `${p2Name}: ${player2.score}`;
             }
         }
 
-        function updateTimerDisplay() {
-            timerDisplay.textContent = `Time: ${timeLeft}`;
-        }
+        function updateTimerDisplay() { timerDisplay.textContent = `Time: ${timeLeft}`; }
 
         function drawPitch() {
-            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-green').trim();
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-scanlines').trim();
-            ctx.lineWidth = 1 * scaleFactor; // Thinner scanlines
-            for (let y = 0; y < canvas.height; y += 5 * scaleFactor) { // Wider scanlines
-                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-            }
-
-            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-lines').trim();
-            ctx.lineWidth = 1.5 * scaleFactor; // Thinner pitch lines
-
-            if (isPortraitMode) {
-                ctx.beginPath(); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
-            } else {
-                ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke();
-            }
-            
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-green').trim(); ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-scanlines').trim(); ctx.lineWidth = 1 * scaleFactor; 
+            for (let y = 0; y < canvas.height; y += 5 * scaleFactor) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-lines').trim(); ctx.lineWidth = 1.5 * scaleFactor; 
+            if (isPortraitMode) { ctx.beginPath(); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke(); } 
+            else { ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke(); }
             ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, CENTER_CIRCLE_RADIUS, 0, Math.PI * 2); ctx.stroke();
-            ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, 3 * scaleFactor, 0, Math.PI * 2); // Smaller center spot
-            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-lines').trim();
-            ctx.fill();
-
-            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--goal-lines').trim();
-            ctx.lineWidth = 2.5 * scaleFactor; // Thinner goal lines
-
+            ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, 3 * scaleFactor, 0, Math.PI * 2); ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-lines').trim(); ctx.fill();
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--goal-lines').trim(); ctx.lineWidth = 2.5 * scaleFactor; 
             if (isPortraitMode) {
-                const topGoalX = (canvas.width - GOAL_WIDTH) / 2;
-                ctx.strokeRect(topGoalX, 0, GOAL_WIDTH, GOAL_DEPTH);
-                const bottomGoalX = (canvas.width - GOAL_WIDTH) / 2;
-                ctx.strokeRect(bottomGoalX, canvas.height - GOAL_DEPTH, GOAL_WIDTH, GOAL_DEPTH);
+                const topGoalX = (canvas.width - GOAL_WIDTH) / 2; ctx.strokeRect(topGoalX, 0, GOAL_WIDTH, GOAL_DEPTH);
+                const bottomGoalX = (canvas.width - GOAL_WIDTH) / 2; ctx.strokeRect(bottomGoalX, canvas.height - GOAL_DEPTH, GOAL_WIDTH, GOAL_DEPTH);
             } else {
-                const goalYPos = (canvas.height - GOAL_WIDTH) / 2; 
-                ctx.strokeRect(0, goalYPos, GOAL_DEPTH, GOAL_WIDTH);
+                const goalYPos = (canvas.height - GOAL_WIDTH) / 2; ctx.strokeRect(0, goalYPos, GOAL_DEPTH, GOAL_WIDTH);
                 ctx.strokeRect(canvas.width - GOAL_DEPTH, goalYPos, GOAL_DEPTH, GOAL_WIDTH);
             }
-            
-            const paWidth = isPortraitMode ? canvas.width * 0.7 : 100 * scaleFactor; // Adjusted PA size
-            const paHeight = isPortraitMode ? 100 * scaleFactor : canvas.height * 0.55; 
-            
-            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-lines').trim();
-            ctx.lineWidth = 1.5 * scaleFactor;
-
+            const paWidth = isPortraitMode ? canvas.width * 0.7 : 100 * scaleFactor; const paHeight = isPortraitMode ? 100 * scaleFactor : canvas.height * 0.55; 
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-lines').trim(); ctx.lineWidth = 1.5 * scaleFactor;
             if (isPortraitMode) {
                 ctx.strokeRect((canvas.width - paWidth) / 2, 0 + GOAL_DEPTH, paWidth, paHeight - GOAL_DEPTH); 
                 ctx.strokeRect((canvas.width - paWidth) / 2, canvas.height - paHeight, paWidth, paHeight - GOAL_DEPTH); 
@@ -649,569 +857,323 @@
             }
         }
 
+        function darkenColor(hexColor, percent) {
+            let r = parseInt(hexColor.slice(1, 3), 16);
+            let g = parseInt(hexColor.slice(3, 5), 16);
+            let b = parseInt(hexColor.slice(5, 7), 16);
+            r = Math.floor(r * (1 - percent / 100));
+            g = Math.floor(g * (1 - percent / 100));
+            b = Math.floor(b * (1 - percent / 100));
+            r = Math.max(0, r).toString(16).padStart(2, '0');
+            g = Math.max(0, g).toString(16).padStart(2, '0');
+            b = Math.max(0, b).toString(16).padStart(2, '0');
+            return `#${r}${g}${b}`;
+        }
+
         function drawFieldPlayer(player) { 
+            if (!player) return;
+            const baseColor = player.color;
+            const darkerOutlineColor = darkenColor(baseColor, 40); 
+            const headColor = darkenColor(baseColor, 25);      
             ctx.beginPath();
             ctx.arc(player.x, player.y, PLAYER_RADIUS, 0, Math.PI * 2);
-            
-            ctx.shadowColor = player.color;
-            ctx.shadowBlur = 4 * scaleFactor; // Reduced shadow
-            ctx.fillStyle = player.color;
+            ctx.shadowColor = baseColor; 
+            ctx.shadowBlur = 4 * scaleFactor; 
+            ctx.fillStyle = baseColor;
             ctx.fill();
             ctx.shadowBlur = 0; 
-
-            ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-            ctx.lineWidth = 0.5 * scaleFactor; // Thinner border
+            ctx.strokeStyle = darkerOutlineColor;
+            ctx.lineWidth = 1.5 * scaleFactor; 
             ctx.stroke();
-            
-            // Simple facing indicator if moving (Sensi style - often no static indicator)
+            const headRadius = PLAYER_RADIUS * 0.4; 
+            const headOffsetY = -PLAYER_RADIUS * 0.1; 
+            ctx.beginPath();
+            ctx.arc(player.x, player.y + headOffsetY, headRadius, 0, Math.PI * 2);
+            ctx.fillStyle = headColor;
+            ctx.fill();
             if (player.dx !== 0 || player.dy !== 0) {
                 const angle = Math.atan2(player.dy, player.dx);
                 ctx.beginPath();
-                ctx.moveTo(player.x + Math.cos(angle) * PLAYER_RADIUS * 0.3, player.y + Math.sin(angle) * PLAYER_RADIUS * 0.3);
-                ctx.lineTo(player.x + Math.cos(angle) * PLAYER_RADIUS * 0.8, player.y + Math.sin(angle) * PLAYER_RADIUS * 0.8);
-                ctx.strokeStyle = 'white'; ctx.lineWidth = 1 * scaleFactor; ctx.stroke();
+                const indicatorStartX = player.x + Math.cos(angle) * (headRadius > 0 ? headRadius * 0.5 : PLAYER_RADIUS * 0.1);
+                const indicatorStartY = player.y + headOffsetY + Math.sin(angle) * (headRadius > 0 ? headRadius * 0.5 : PLAYER_RADIUS * 0.1);
+                ctx.moveTo(indicatorStartX, indicatorStartY);
+                ctx.lineTo(player.x + Math.cos(angle) * PLAYER_RADIUS * 0.9, player.y + Math.sin(angle) * PLAYER_RADIUS * 0.9); 
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'; 
+                ctx.lineWidth = 1.5 * scaleFactor; 
+                ctx.stroke();
             }
         }
         
         function drawGoalkeeper(gk) {
-            ctx.beginPath();
-            ctx.arc(gk.x, gk.y, GOALKEEPER_RADIUS, 0, Math.PI * 2);
-            ctx.shadowColor = gk.color;
-            ctx.shadowBlur = 5 * scaleFactor; 
-            ctx.fillStyle = gk.color;
-            ctx.fill();
-            ctx.shadowBlur = 0; 
-            ctx.strokeStyle = 'rgba(0,0,0,0.7)'; 
-            ctx.lineWidth = 0.75 * scaleFactor;
-            ctx.stroke();
+            if (!gk) return; ctx.beginPath(); ctx.arc(gk.x, gk.y, GOALKEEPER_RADIUS, 0, Math.PI * 2);
+            ctx.shadowColor = gk.color; ctx.shadowBlur = 5 * scaleFactor; ctx.fillStyle = gk.color; ctx.fill(); ctx.shadowBlur = 0; 
+            ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 0.75 * scaleFactor; ctx.stroke();
         }
 
         function drawBall() {
-            ctx.beginPath();
-            ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
-            ctx.shadowColor = ball.color;
-            ctx.shadowBlur = 6 * scaleFactor; // Reduced shadow
-            ctx.fillStyle = ball.color;
-            ctx.fill();
-            ctx.shadowBlur = 0; 
-            ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-            ctx.lineWidth = 0.5 * scaleFactor;
-            ctx.stroke();
+            if (!ball) return; ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
+            ctx.shadowColor = ball.color; ctx.shadowBlur = 6 * scaleFactor; ctx.fillStyle = ball.color; ctx.fill(); ctx.shadowBlur = 0; 
+            ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.5 * scaleFactor; ctx.stroke();
         }
-
 
         function updateFieldPlayer(player, isAI = false, deltaTime) {
+            if (!player || !ball) return;
+            // KICK DEBUG: Log P1 state at start of update
+            if (!isAI && player === player1) {
+                 console.log(`[UpdateP1 Start] isKicking: ${player.isKicking}, hasBall: ${player.hasBall}, controlledBySelf: ${ball.controlledBy === player}, kickCharge: ${player.kickCharge.toFixed(2)}`);
+            }
+
             let currentBaseSpeed = PLAYER_SPEED * (isAI ? AI_SPEED_MODIFIER : 1);
             let actualSpeed = player.isSprinting ? currentBaseSpeed * (isAI ? AI_SPRINT_MODIFIER : PLAYER_SPRINT_MULTIPLIER) : currentBaseSpeed;
-            
             let targetDx = 0, targetDy = 0;
-
-            if (!isAI) { // Human Player
-                // Process input for kick charging / sprint state
+            if (!isAI) { 
                 if (player.actionButtonDown) {
-                    if (player.hasBall && ball.controlledBy === player) {
-                        player.isSprinting = false;
-                        // Check if hold duration exceeds tap threshold for charging
-                        if (performance.now() - player.actionButtonStartTime > KICK_TAP_THRESHOLD_MS) {
-                            player.kickCharge = Math.min(MAX_KICK_CHARGE, player.kickCharge + KICK_CHARGE_RATE * (deltaTime / (1000/60)));
-                        }
-                    } else { // No ball, so sprint
-                        player.isSprinting = true;
-                    }
-                } else { // Action button is up
-                    player.isSprinting = false; 
-                    // If player was charging and button is now up, isKicking is set by input handler to trigger kick
-                }
-
-                // Movement from joystick/keys
+                    if (player.hasBall && ball.controlledBy === player) { player.isSprinting = false; if (performance.now() - player.actionButtonStartTime > KICK_TAP_THRESHOLD_MS) player.kickCharge = Math.min(MAX_KICK_CHARGE, player.kickCharge + KICK_CHARGE_RATE * (deltaTime / (1000/60))); } 
+                    else player.isSprinting = true;
+                } else player.isSprinting = false; 
                 let moveX = 0, moveY = 0;
                 if (isTouchDevice && touchState.joystickActive) {
-                    const joystickRadius = joystickArea.offsetWidth / 2;
-                    const relativeX = (touchState.joystickCurrentX - joystickArea.offsetWidth / 2) / joystickRadius;
-                    const relativeY = (touchState.joystickCurrentY - joystickArea.offsetHeight / 2) / joystickRadius;
-                    const magnitude = Math.sqrt(relativeX * relativeX + relativeY * relativeY);
-                    if (magnitude > JOYSTICK_DEADZONE) {
-                        const effectiveMagnitude = Math.min(1, (magnitude - JOYSTICK_DEADZONE) / (1 - JOYSTICK_DEADZONE));
-                        moveX = (relativeX / magnitude) * effectiveMagnitude;
-                        moveY = (relativeY / magnitude) * effectiveMagnitude;
-                    }
+                    const joystickRadius = joystickArea.offsetWidth / 2; const relativeX = (touchState.joystickCurrentX - joystickArea.offsetWidth / 2) / joystickRadius; const relativeY = (touchState.joystickCurrentY - joystickArea.offsetHeight / 2) / joystickRadius; const magnitude = Math.sqrt(relativeX * relativeX + relativeY * relativeY);
+                    if (magnitude > JOYSTICK_DEADZONE) { const effectiveMagnitude = Math.min(1, (magnitude - JOYSTICK_DEADZONE) / (1 - JOYSTICK_DEADZONE)); moveX = (relativeX / magnitude) * effectiveMagnitude; moveY = (relativeY / magnitude) * effectiveMagnitude; }
                 } else if (!isTouchDevice) {
-                    if (keys['ArrowUp'] || keys['w']) moveY -= 1;
-                    if (keys['ArrowDown'] || keys['s']) moveY += 1;
-                    if (keys['ArrowLeft'] || keys['a']) moveX -= 1;
-                    if (keys['ArrowRight'] || keys['d']) moveX += 1;
+                    if (keys['arrowup'] || keys['w']) moveY -= 1; if (keys['arrowdown'] || keys['s']) moveY += 1;
+                    if (keys['arrowleft'] || keys['a']) moveX -= 1; if (keys['arrowright'] || keys['d']) moveX += 1;
                 }
-
-                if (moveX !== 0 || moveY !== 0) {
-                    const normFactor = Math.sqrt(moveX * moveX + moveY * moveY);
-                    targetDx = (moveX / normFactor) * actualSpeed;
-                    targetDy = (moveY / normFactor) * actualSpeed;
-                }
-
-            } else { // AI Player
-                let targetDestX = ball.x;
-                let targetDestY = ball.y;
-                const aiPlayer = player; // P2 is AI
-
-                if (aiPlayer.hasBall && ball.controlledBy === aiPlayer) { // AI has ball, move towards P1's goal
-                    if (isPortraitMode) { // P1 goal is top
-                        targetDestX = canvas.width / 2; targetDestY = 0 - PLAYER_RADIUS * 5; // Aim deep
-                    } else { // P1 goal is left
-                        targetDestX = 0 - PLAYER_RADIUS * 5; targetDestY = canvas.height / 2;
-                    }
-                    aiPlayer.isSprinting = true; // Sprint when dribbling towards goal
-                } else { // AI doesn't have ball, move towards ball
-                     aiPlayer.isSprinting = Math.random() < 0.3; // Occasional sprint when chasing
-                }
-                
+                if (moveX !== 0 || moveY !== 0) { const normFactor = Math.sqrt(moveX * moveX + moveY * moveY); targetDx = (moveX / normFactor) * actualSpeed; targetDy = (moveY / normFactor) * actualSpeed; }
+            } else { 
+                let targetDestX = ball.x; let targetDestY = ball.y; const aiPlayer = player; 
+                if (aiPlayer.hasBall && ball.controlledBy === aiPlayer) { 
+                    if (isPortraitMode) { targetDestX = canvas.width / 2; targetDestY = canvas.height + PLAYER_RADIUS * 5; } 
+                    else { targetDestX = 0 - PLAYER_RADIUS * 5; targetDestY = canvas.height / 2; }
+                    aiPlayer.isSprinting = true; 
+                } else aiPlayer.isSprinting = Math.random() < 0.3; 
                 const angleToTarget = Math.atan2(targetDestY - aiPlayer.y, targetDestX - aiPlayer.x);
-                targetDx = Math.cos(angleToTarget) * actualSpeed;
-                targetDy = Math.sin(angleToTarget) * actualSpeed;
-
-                // AI Kicking decision
+                targetDx = Math.cos(angleToTarget) * actualSpeed; targetDy = Math.sin(angleToTarget) * actualSpeed;
                 if (aiPlayer.hasBall && ball.controlledBy === aiPlayer) {
                     let shoot = false;
-                    if (isPortraitMode) { // AI (P2) attacks bottom goal. P1's goal is at Y=0.
-                        if (aiPlayer.y < canvas.height * 0.40) shoot = true; // In shooting range (top 40% of pitch for P2)
-                    } else { // AI (P2) attacks left goal. P1's goal is at X=0.
-                        if (aiPlayer.x < canvas.width * 0.40) shoot = true;
-                    }
-                    if (shoot && Math.random() < 0.1) { // Chance to shoot if in range
-                        aiPlayer.isKicking = true;
-                        aiPlayer.kickCharge = Math.random() * (MAX_KICK_CHARGE - MIN_KICK_POWER_FACTOR) + MIN_KICK_POWER_FACTOR; // Random kick power
-                    }
+                    if (isPortraitMode) { if (aiPlayer.y > canvas.height * 0.60) shoot = true; } 
+                    else { if (aiPlayer.x < canvas.width * 0.40) shoot = true; }
+                    if (shoot && Math.random() < 0.1) { aiPlayer.isKicking = true; aiPlayer.kickCharge = Math.random() * (MAX_KICK_CHARGE - MIN_KICK_POWER_FACTOR) + MIN_KICK_POWER_FACTOR; }
                 }
             }
-            
-            player.dx = player.dx * PLAYER_INERTIA + targetDx * (1 - PLAYER_INERTIA);
-            player.dy = player.dy * PLAYER_INERTIA + targetDy * (1 - PLAYER_INERTIA);
-            player.x += player.dx * (deltaTime / (1000/60)); // Scale by deltaTime
-            player.y += player.dy * (deltaTime / (1000/60));
-
-            player.x = Math.max(PLAYER_RADIUS, Math.min(canvas.width - PLAYER_RADIUS, player.x));
-            player.y = Math.max(PLAYER_RADIUS, Math.min(canvas.height - PLAYER_RADIUS, player.y));
-
-            // Dribbling: Ball sticks to player
+            player.dx = player.dx * PLAYER_INERTIA + targetDx * (1 - PLAYER_INERTIA); player.dy = player.dy * PLAYER_INERTIA + targetDy * (1 - PLAYER_INERTIA);
+            player.x += player.dx * (deltaTime / (1000/60)); player.y += player.dy * (deltaTime / (1000/60));
+            player.x = Math.max(PLAYER_RADIUS, Math.min(canvas.width - PLAYER_RADIUS, player.x)); player.y = Math.max(PLAYER_RADIUS, Math.min(canvas.height - PLAYER_RADIUS, player.y));
             if (player.hasBall && ball.controlledBy === player) {
-                const moveAngle = (player.dx !== 0 || player.dy !== 0) ? Math.atan2(player.dy, player.dx) : player.lastMoveAngle;
-                player.lastMoveAngle = moveAngle;
-                ball.x = player.x + Math.cos(moveAngle) * DRIBBLING_OFFSET_DISTANCE;
-                ball.y = player.y + Math.sin(moveAngle) * DRIBBLING_OFFSET_DISTANCE;
-                ball.dx = player.dx * 0.7; ball.dy = player.dy * 0.7; // Ball moves with player
+                const moveAngle = (player.dx !== 0 || player.dy !== 0) ? Math.atan2(player.dy, player.dx) : player.lastMoveAngle; player.lastMoveAngle = moveAngle;
+                ball.x = player.x + Math.cos(moveAngle) * DRIBBLING_OFFSET_DISTANCE; ball.y = player.y + Math.sin(moveAngle) * DRIBBLING_OFFSET_DISTANCE;
+                ball.dx = player.dx * 0.7; ball.dy = player.dy * 0.7; 
             }
-
-            // Kicking (triggered by isKicking flag, often set on button release for human)
             if (player.isKicking && player.hasBall && ball.controlledBy === player) {
-                let kickAngle;
-                let kickPower;
-
-                if (!isAI) { // Human player
-                    kickAngle = (player.dx !== 0 || player.dy !== 0) ? Math.atan2(player.dy, player.dx) : player.lastMoveAngle;
-                     // If stationary, aim at center of opponent goal
-                    if (player.dx === 0 && player.dy === 0) {
-                        let goalX, goalY;
-                        if (player === player1) { // P1 attacks P2's goal
-                             goalX = isPortraitMode ? canvas.width / 2 : canvas.width;
-                             goalY = isPortraitMode ? 0 : canvas.height / 2; // P1 (human) attacks top goal in portrait
-                        } else { /* Should not happen for P2 if AI */ }
-                        kickAngle = Math.atan2(goalY - player.y, goalX - player.x);
-                    }
-                    kickPower = PASS_STRENGTH + (KICK_STRENGTH - PASS_STRENGTH) * player.kickCharge;
-                } else { // AI Player
-                    let goalTargetX, goalTargetY;
-                     // AI P2 aims for P1's goal (top in portrait, left in landscape)
-                    if (isPortraitMode) { 
-                        goalTargetX = canvas.width / 2 + (Math.random() - 0.5) * GOAL_WIDTH * 0.6;
-                        goalTargetY = 0; // Top goal
-                    } else { 
-                        goalTargetX = 0; // Left goal
-                        goalTargetY = canvas.height / 2 + (Math.random() - 0.5) * GOAL_WIDTH * 0.6;
-                    }
-                    kickAngle = Math.atan2(goalTargetY - ball.y, goalTargetX - ball.x);
-                    kickPower = KICK_STRENGTH * player.kickCharge * AI_KICK_POWER_FACTOR;
-                }
-
-                ball.dx = Math.cos(kickAngle) * kickPower;
-                ball.dy = Math.sin(kickAngle) * kickPower;
+                // KICK DEBUG: Log before applying kick physics
+                if (!isAI && player === player1) console.log(`[UpdateP1 KICKING!] kickCharge: ${player.kickCharge.toFixed(2)}`);
                 
-                player.hasBall = false;
-                ball.controlledBy = null;
-                ball.lastTouchedBy = player;
-                player.isKicking = false;
-                player.kickCharge = 0;
-                if(!isAI) player.actionButtonDown = false; // Reset for human after kick
-
+                let kickAngle; let kickPower;
+                if (!isAI) { 
+                    kickAngle = (player.dx !== 0 || player.dy !== 0) ? Math.atan2(player.dy, player.dx) : player.lastMoveAngle;
+                    if (player.dx === 0 && player.dy === 0) { let goalX, goalY; goalX = isPortraitMode ? canvas.width / 2 : canvas.width; goalY = isPortraitMode ? 0 : canvas.height / 2; kickAngle = Math.atan2(goalY - player.y, goalX - player.x); }
+                    kickPower = PASS_STRENGTH + (KICK_STRENGTH - PASS_STRENGTH) * player.kickCharge;
+                } else { 
+                    let goalTargetX, goalTargetY;
+                    if (isPortraitMode) { goalTargetX = canvas.width / 2 + (Math.random() - 0.5) * GOAL_WIDTH * 0.6; goalTargetY = 0; } 
+                    else { goalTargetX = 0; goalTargetY = canvas.height / 2 + (Math.random() - 0.5) * GOAL_WIDTH * 0.6; }
+                    kickAngle = Math.atan2(goalTargetY - ball.y, goalTargetX - ball.x); kickPower = KICK_STRENGTH * player.kickCharge * AI_KICK_POWER_FACTOR;
+                }
+                ball.dx = Math.cos(kickAngle) * kickPower; ball.dy = Math.sin(kickAngle) * kickPower;
+                player.hasBall = false; ball.controlledBy = null; ball.lastTouchedBy = player; player.isKicking = false; player.kickCharge = 0; 
+                // player.actionButtonDown = false; // This is already handled by keyup/touchend, redundant here.
                 createParticles(ball.x, ball.y, 3 + Math.floor(kickPower/KICK_STRENGTH * 5), player.color);
                 triggerScreenShake(kickPower / KICK_STRENGTH * 1.5, 5 + Math.floor(kickPower/KICK_STRENGTH*5) );
-                if (!isAI) {
-                    if (player.kickCharge > MAX_KICK_CHARGE * 0.4) { // Threshold for hard kick
-                        playSoundEffect(soundEffects.kickHard, 0.8);
-                    } else {
-                        playSoundEffect(soundEffects.kickSoft, 0.4); // Softer volume for soft kick
-                    }
-                } else {
-                    playSoundEffect(soundEffects.kickHard, 0.6); // AI kick sound
-                }
+                if (player.kickCharge > MAX_KICK_CHARGE * 0.4 || isAI) playSoundEffect(isAI ? 'kickHard' : 'kickHard', { velocity: isAI ? 0.7 : 0.9 });
+                else playSoundEffect('kickSoft', { velocity: 0.5 });
             }
-            
-            // Attempt to gain possession
             if (!player.hasBall && ball.controlledBy === null) {
                 const distToBall = distance(player.x, player.y, ball.x, ball.y);
-                if (distToBall < DRIBBLING_DISTANCE_THRESHOLD * (isAI ? 1.1 : 1)) { // AI slightly better pickup
-                    player.hasBall = true;
-                    ball.controlledBy = player;
-                    // Snap ball to front
+                if (distToBall < DRIBBLING_DISTANCE_THRESHOLD * (isAI ? 1.1 : 1)) { 
+                    player.hasBall = true; ball.controlledBy = player;
                     const angleToBall = Math.atan2(ball.y - player.y, ball.x - player.x);
-                    ball.x = player.x + Math.cos(angleToBall) * DRIBBLING_OFFSET_DISTANCE * 0.8;
-                    ball.y = player.y + Math.sin(angleToBall) * DRIBBLING_OFFSET_DISTANCE * 0.8;
+                    ball.x = player.x + Math.cos(angleToBall) * DRIBBLING_OFFSET_DISTANCE * 0.8; ball.y = player.y + Math.sin(angleToBall) * DRIBBLING_OFFSET_DISTANCE * 0.8;
                 }
             }
         }
 
-
         function updateGoalkeeper(gk, isPlayer1GK, deltaTime) {
-            let ballTrackPos, gkTrackPosAxis, gkFixedPosAxis, goalLineCenterFixed;
-            let goalMinTrack, goalMaxTrack;
-            
-            const diveSpeedMultiplier = 1.8;
-            const diveDistance = GOALKEEPER_RADIUS * 3;
-            const reactionDist = (isPortraitMode ? canvas.height : canvas.width) / 2.5;
-
+            if (!gk || !ball) return;
+            let ballTrackPos, gkTrackPosAxis, gkFixedPosAxis, goalLineCenterFixed, goalMinTrack, goalMaxTrack;
+            const diveSpeedMultiplier = 1.8; const diveDistance = GOALKEEPER_RADIUS * 3; const reactionDist = (isPortraitMode ? canvas.height : canvas.width) / 2.5;
             if (isPortraitMode) {
                 ballTrackPos = ball.x; gkTrackPosAxis = 'x'; gkFixedPosAxis = 'y';
-                goalMinTrack = (canvas.width - GOAL_WIDTH) / 2 + GOALKEEPER_RADIUS;
-                goalMaxTrack = (canvas.width + GOAL_WIDTH) / 2 - GOALKEEPER_RADIUS;
-                goalLineCenterFixed = isPlayer1GK ? gk.initialY : gk.initialY;
-            } else { // Landscape
+                goalMinTrack = (canvas.width - GOAL_WIDTH) / 2 + GOALKEEPER_RADIUS; goalMaxTrack = (canvas.width + GOAL_WIDTH) / 2 - GOALKEEPER_RADIUS;
+                goalLineCenterFixed = isPlayer1GK ? gk.initialY : gk.initialY; 
+            } else { 
                 ballTrackPos = ball.y; gkTrackPosAxis = 'y'; gkFixedPosAxis = 'x';
-                goalMinTrack = (canvas.height - GOAL_WIDTH) / 2 + GOALKEEPER_RADIUS;
-                goalMaxTrack = (canvas.height + GOAL_WIDTH) / 2 - GOALKEEPER_RADIUS;
+                goalMinTrack = (canvas.height - GOAL_WIDTH) / 2 + GOALKEEPER_RADIUS; goalMaxTrack = (canvas.height + GOAL_WIDTH) / 2 - GOALKEEPER_RADIUS;
                 goalLineCenterFixed = isPlayer1GK ? gk.initialX : gk.initialX;
             }
-
-            let targetTrackPos = ballTrackPos;
-            targetTrackPos = Math.max(goalMinTrack, Math.min(goalMaxTrack, targetTrackPos));
-            
-            const trackDiff = targetTrackPos - gk[gkTrackPosAxis];
-            gk['d'+gkTrackPosAxis] = Math.sign(trackDiff) * Math.min(Math.abs(trackDiff), GOALKEEPER_SPEED * 0.8); // Slower side-to-side for Sensi feel
-
-            // Dive logic
+            let targetTrackPos = ballTrackPos; targetTrackPos = Math.max(goalMinTrack, Math.min(goalMaxTrack, targetTrackPos));
+            const trackDiff = targetTrackPos - gk[gkTrackPosAxis]; gk['d'+gkTrackPosAxis] = Math.sign(trackDiff) * Math.min(Math.abs(trackDiff), GOALKEEPER_SPEED * 0.8); 
             let ballDistToGoal, ballApproachingGoal;
-            if (isPortraitMode) {
-                ballDistToGoal = isPlayer1GK ? ball.y - gk.initialY : gk.initialY - ball.y;
-                ballApproachingGoal = isPlayer1GK ? ball.dy < -BALL_RADIUS*0.05 : ball.dy > BALL_RADIUS*0.05;
-            } else {
-                ballDistToGoal = isPlayer1GK ? ball.x - gk.initialX : gk.initialX - ball.x;
-                ballApproachingGoal = isPlayer1GK ? ball.dx < -BALL_RADIUS*0.05 : ball.dx > BALL_RADIUS*0.05;
-            }
-            
+            if (isPortraitMode) { ballDistToGoal = isPlayer1GK ? ball.y - gk.initialY : gk.initialY - ball.y; ballApproachingGoal = isPlayer1GK ? ball.dy < -BALL_RADIUS*0.05 : ball.dy > BALL_RADIUS*0.05; } 
+            else { ballDistToGoal = isPlayer1GK ? ball.x - gk.initialX : gk.initialX - ball.x; ballApproachingGoal = isPlayer1GK ? ball.dx < -BALL_RADIUS*0.05 : ball.dx > BALL_RADIUS*0.05; }
             const ballInLineWithGoal = Math.abs(ballTrackPos - gk[gkTrackPosAxis]) < GOAL_WIDTH * 0.6;
-
             if (ballDistToGoal < reactionDist && ballApproachingGoal && ballInLineWithGoal && ball.controlledBy === null && Math.abs(ball[gkFixedPosAxis] - goalLineCenterFixed) < reactionDist * 1.5) {
-                // Dive towards the ball along the fixed axis
-                let diveTarget = goalLineCenterFixed + Math.sign(ball[gkFixedPosAxis] - goalLineCenterFixed) * diveDistance;
-                 if (isPlayer1GK && isPortraitMode) diveTarget = gk.initialY + diveDistance; // GK1 dives "down"
-                 else if (!isPlayer1GK && isPortraitMode) diveTarget = gk.initialY - diveDistance; // GK2 dives "up"
-                 else if (isPlayer1GK && !isPortraitMode) diveTarget = gk.initialX + diveDistance; // GK1 dives "right"
-                 else if (!isPlayer1GK && !isPortraitMode) diveTarget = gk.initialX - diveDistance; // GK2 dives "left"
-
-
-                const diveDiff = diveTarget - gk[gkFixedPosAxis];
-                gk['d'+gkFixedPosAxis] = Math.sign(diveDiff) * Math.min(Math.abs(diveDiff), GOALKEEPER_SPEED * diveSpeedMultiplier);
+                let diveTargetFixedAxis = ball[gkFixedPosAxis]; 
+                diveTargetFixedAxis = Math.max(goalLineCenterFixed - diveDistance, Math.min(goalLineCenterFixed + diveDistance, diveTargetFixedAxis));
+                const diveDiff = diveTargetFixedAxis - gk[gkFixedPosAxis]; gk['d'+gkFixedPosAxis] = Math.sign(diveDiff) * Math.min(Math.abs(diveDiff), GOALKEEPER_SPEED * diveSpeedMultiplier);
             } else {
-                // Return to goal line center on fixed axis
                 const returnDiff = goalLineCenterFixed - gk[gkFixedPosAxis];
-                if (Math.abs(returnDiff) > GOALKEEPER_SPEED * 0.1) {
-                    gk['d'+gkFixedPosAxis] = Math.sign(returnDiff) * GOALKEEPER_SPEED * 0.6;
-                } else {
-                    gk[gkFixedPosAxis] = goalLineCenterFixed;
-                    gk['d'+gkFixedPosAxis] = 0;
-                }
+                if (Math.abs(returnDiff) > GOALKEEPER_SPEED * 0.1) gk['d'+gkFixedPosAxis] = Math.sign(returnDiff) * GOALKEEPER_SPEED * 0.6;
+                else { gk[gkFixedPosAxis] = goalLineCenterFixed; gk['d'+gkFixedPosAxis] = 0; }
             }
-
-            gk.x += gk.dx * (deltaTime / (1000/60));
-            gk.y += gk.dy * (deltaTime / (1000/60));
-
+            gk.x += gk.dx * (deltaTime / (1000/60)); gk.y += gk.dy * (deltaTime / (1000/60));
             gk[gkTrackPosAxis] = Math.max(goalMinTrack - GOALKEEPER_RADIUS, Math.min(goalMaxTrack + GOALKEEPER_RADIUS, gk[gkTrackPosAxis]));
             gk[gkFixedPosAxis] = Math.max(goalLineCenterFixed - diveDistance * 1.1, Math.min(goalLineCenterFixed + diveDistance * 1.1, gk[gkFixedPosAxis]));
         }
 
-
         function updateBall(deltaTime) {
-            if (ball.controlledBy === null) { // Only apply physics if not controlled
-                ball.x += ball.dx * (deltaTime / (1000/60));
-                ball.y += ball.dy * (deltaTime / (1000/60));
-                ball.dx *= Math.pow(BALL_INERTIA, deltaTime / (1000/60)); // Inertia scaled by deltaTime
-                ball.dy *= Math.pow(BALL_INERTIA, deltaTime / (1000/60));
+            if (!ball) return;
+            if (ball.controlledBy === null) { 
+                ball.x += ball.dx * (deltaTime / (1000/60)); ball.y += ball.dy * (deltaTime / (1000/60));
+                ball.dx *= Math.pow(BALL_INERTIA, deltaTime / (1000/60)); ball.dy *= Math.pow(BALL_INERTIA, deltaTime / (1000/60));
             }
-
-
             const ballSpeed = Math.sqrt(ball.dx**2 + ball.dy**2);
-            if (ballSpeed > MAX_BALL_SPEED) {
-                ball.dx = (ball.dx / ballSpeed) * MAX_BALL_SPEED;
-                ball.dy = (ball.dy / ballSpeed) * MAX_BALL_SPEED;
-            }
-
-            const ballHitWall = () => { createParticles(ball.x, ball.y, 2); playSoundEffect(soundEffects.ballBounce, 0.5); }; // Fewer particles for wall hit
-
+            if (ballSpeed > MAX_BALL_SPEED) { ball.dx = (ball.dx / ballSpeed) * MAX_BALL_SPEED; ball.dy = (ball.dy / ballSpeed) * MAX_BALL_SPEED; }
+            const ballHitWall = () => { createParticles(ball.x, ball.y, 2); playSoundEffect('ballBounce', {note: "A3"}); }; 
             if (isPortraitMode) {
-                if (ball.x - BALL_RADIUS < 0 || ball.x + BALL_RADIUS > canvas.width) {
-                    ball.dx *= -0.75; // Less bounce
-                    ball.x = Math.max(BALL_RADIUS, Math.min(canvas.width - BALL_RADIUS, ball.x));
-                    ballHitWall();
+                if (ball.x - BALL_RADIUS < 0 || ball.x + BALL_RADIUS > canvas.width) { ball.dx *= -0.75; ball.x = Math.max(BALL_RADIUS, Math.min(canvas.width - BALL_RADIUS, ball.x)); ballHitWall(); }
+                const goalXMin = (canvas.width - GOAL_WIDTH) / 2; const goalXMax = (canvas.width + GOAL_WIDTH) / 2;
+                if (ball.y - BALL_RADIUS < GOAL_DEPTH) { 
+                    if (ball.x > goalXMin && ball.x < goalXMax) { if (ball.y - BALL_RADIUS < 0) goalScored(player2); } 
+                    else if (ball.y - BALL_RADIUS < 0) { ball.dy *= -0.75; ball.y = BALL_RADIUS; ballHitWall(); }
                 }
-                const goalXMin = (canvas.width - GOAL_WIDTH) / 2;
-                const goalXMax = (canvas.width + GOAL_WIDTH) / 2;
-
-                if (ball.y - BALL_RADIUS < GOAL_DEPTH) { // P1's goal (top)
-                    if (ball.x > goalXMin && ball.x < goalXMax) {
-                        if (ball.y - BALL_RADIUS < 0) goalScored(player2); // P2 scored
-                    } else if (ball.y - BALL_RADIUS < 0) { 
-                        ball.dy *= -0.75; ball.y = BALL_RADIUS; ballHitWall();
-                    }
+                if (ball.y + BALL_RADIUS > canvas.height - GOAL_DEPTH) { 
+                    if (ball.x > goalXMin && ball.x < goalXMax) { if (ball.y + BALL_RADIUS > canvas.height) goalScored(player1); } 
+                    else if (ball.y + BALL_RADIUS > canvas.height) { ball.dy *= -0.75; ball.y = canvas.height - BALL_RADIUS; ballHitWall(); }
                 }
-                if (ball.y + BALL_RADIUS > canvas.height - GOAL_DEPTH) { // P2's goal (bottom)
-                    if (ball.x > goalXMin && ball.x < goalXMax) {
-                        if (ball.y + BALL_RADIUS > canvas.height) goalScored(player1); // P1 scored
-                    } else if (ball.y + BALL_RADIUS > canvas.height) {
-                        ball.dy *= -0.75; ball.y = canvas.height - BALL_RADIUS; ballHitWall();
-                    }
-                }
-
-            } else { // Landscape mode
-                if (ball.y - BALL_RADIUS < 0 || ball.y + BALL_RADIUS > canvas.height) {
-                    ball.dy *= -0.75; 
-                    ball.y = Math.max(BALL_RADIUS, Math.min(canvas.height - BALL_RADIUS, ball.y));
-                    ballHitWall();
-                }
-
-                const goalLineY1 = (canvas.height - GOAL_WIDTH) / 2;
-                const goalLineY2 = (canvas.height + GOAL_WIDTH) / 2;
-                
+            } else { 
+                if (ball.y - BALL_RADIUS < 0 || ball.y + BALL_RADIUS > canvas.height) { ball.dy *= -0.75; ball.y = Math.max(BALL_RADIUS, Math.min(canvas.height - BALL_RADIUS, ball.y)); ballHitWall(); }
+                const goalYMin = (canvas.height - GOAL_WIDTH) / 2; const goalYMax = (canvas.height + GOAL_WIDTH) / 2;
                 const checkPostCollision = (postX, isLeftPost) => {
-                    // Simplified post check - if ball x is beyond goal mouth x and y is near post y
-                    if ( (isLeftPost && ball.x < postX) || (!isLeftPost && ball.x > postX) ) {
-                         if (distance(ball.x, ball.y, postX, goalLineY1) < BALL_RADIUS + 3*scaleFactor ||
-                             distance(ball.x, ball.y, postX, goalLineY2) < BALL_RADIUS + 3*scaleFactor) {
-                            ball.dx *= -0.8; ball.dy *= 0.6;  
-                            createParticles(ball.x, ball.y, 5, getComputedStyle(document.documentElement).getPropertyValue('--goal-lines').trim());
-                            triggerScreenShake(2, 8);
-                            playSoundEffect(soundEffects.ballBounce, 0.7);
-                            return true;
-                         }
-                    }
-                    return false;
+                    if ( (isLeftPost && ball.x < postX + BALL_RADIUS) || (!isLeftPost && ball.x > postX - BALL_RADIUS) ) {
+                         if (distance(ball.x, ball.y, postX, goalYMin) < BALL_RADIUS + 3*scaleFactor || distance(ball.x, ball.y, postX, goalYMax) < BALL_RADIUS + 3*scaleFactor || (ball.y > goalYMin && ball.y < goalYMax && Math.abs(ball.x - postX) < BALL_RADIUS) ) {
+                            ball.dx *= -0.8; ball.dy *= 0.6; createParticles(ball.x, ball.y, 5, getComputedStyle(document.documentElement).getPropertyValue('--goal-lines').trim()); triggerScreenShake(2, 8); playSoundEffect('ballBounce', {note: "E3"}); return true;
+                        }
+                    } return false;
                 };
-
-                if (ball.x - BALL_RADIUS < GOAL_DEPTH) { // P2's goal (left)
-                    if (ball.y > goalLineY1 && ball.y < goalLineY2) { 
-                        if (ball.x - BALL_RADIUS < 0) goalScored(player2); 
-                    } else if (ball.x - BALL_RADIUS < 0 || checkPostCollision(GOAL_DEPTH, true)) { 
-                         if(!checkPostCollision(GOAL_DEPTH, true)) { 
-                            ball.dx *= -0.75; ball.x = BALL_RADIUS; ballHitWall();
-                         }
-                    }
+                if (ball.x - BALL_RADIUS < GOAL_DEPTH) { 
+                    if (ball.y > goalYMin && ball.y < goalYMax) { if (ball.x - BALL_RADIUS < 0) goalScored(player2); } 
+                    else if (ball.x - BALL_RADIUS < 0 || checkPostCollision(GOAL_DEPTH, true)) { if(!checkPostCollision(GOAL_DEPTH, true)) { ball.dx *= -0.75; ball.x = BALL_RADIUS; ballHitWall(); } }
                 }
-                if (ball.x + BALL_RADIUS > canvas.width - GOAL_DEPTH) {  // P1's goal (right)
-                     if (ball.y > goalLineY1 && ball.y < goalLineY2) { 
-                        if (ball.x + BALL_RADIUS > canvas.width) goalScored(player1); 
-                     } else if (ball.x + BALL_RADIUS > canvas.width || checkPostCollision(canvas.width - GOAL_DEPTH, false)) { 
-                         if(!checkPostCollision(canvas.width - GOAL_DEPTH, false)) {
-                            ball.dx *= -0.75; ball.x = canvas.width - BALL_RADIUS; ballHitWall();
-                         }
-                     }
+                if (ball.x + BALL_RADIUS > canvas.width - GOAL_DEPTH) { 
+                     if (ball.y > goalYMin && ball.y < goalYMax) { if (ball.x + BALL_RADIUS > canvas.width) goalScored(player1); } 
+                     else if (ball.x + BALL_RADIUS > canvas.width || checkPostCollision(canvas.width - GOAL_DEPTH, false)) { if(!checkPostCollision(canvas.width - GOAL_DEPTH, false)) { ball.dx *= -0.75; ball.x = canvas.width - BALL_RADIUS; ballHitWall(); } }
                 }
             }
         }
 
         function handleCollisions() {
-            // Player-Player collision (simple push back and potential ball loss)
-            if (player1 && player2) {
-                const pDist = distance(player1.x, player1.y, player2.x, player2.y);
-                const collisionThreshold = PLAYER_RADIUS * 1.8; // Slightly less than 2*R for more "overlap" feel
-
-                if (pDist < collisionThreshold) {
-                    const angle = Math.atan2(player2.y - player1.y, player2.x - player1.x);
-                    const overlap = collisionThreshold - pDist;
-                    const moveBack = overlap / 2 * 0.8; // Less aggressive push back
-                    
-                    player1.x -= Math.cos(angle) * moveBack;
-                    player1.y -= Math.sin(angle) * moveBack;
-                    player2.x += Math.cos(angle) * moveBack;
-                    player2.y += Math.sin(angle) * moveBack;
-
-                    // Tackle/Dispossession
-                    const tackleChance = 0.35; // Base chance to lose ball
-                    if (player1.hasBall && ball.controlledBy === player1 && (player2.isSprinting || Math.abs(player2.dx) + Math.abs(player2.dy) > PLAYER_SPEED*0.5) ) {
-                        if (Math.random() < tackleChance) {
-                            player1.hasBall = false; ball.controlledBy = null;
-                            ball.dx += (Math.random() - 0.5) * KICK_STRENGTH * 0.05; // Small nudge
-                            ball.dy += (Math.random() - 0.5) * KICK_STRENGTH * 0.05;
-                            createParticles(player1.x, player1.y, 3, player2.color);
-                        }
-                    } else if (player2.hasBall && ball.controlledBy === player2 && (player1.isSprinting || Math.abs(player1.dx) + Math.abs(player1.dy) > PLAYER_SPEED*0.5) ) {
-                        if (Math.random() < tackleChance) {
-                            player2.hasBall = false; ball.controlledBy = null;
-                            ball.dx += (Math.random() - 0.5) * KICK_STRENGTH * 0.05;
-                            ball.dy += (Math.random() - 0.5) * KICK_STRENGTH * 0.05;
-                             createParticles(player2.x, player2.y, 3, player1.color);
-                        }
-                    }
+            if (!player1 || !player2 || !ball || !goalkeeper1 || !goalkeeper2) return;
+            const pDist = distance(player1.x, player1.y, player2.x, player2.y); const collisionThreshold = PLAYER_RADIUS * 1.8; 
+            if (pDist < collisionThreshold) {
+                const angle = Math.atan2(player2.y - player1.y, player2.x - player1.x); const overlap = collisionThreshold - pDist; const moveBack = overlap / 2 * 0.8; 
+                player1.x -= Math.cos(angle) * moveBack; player1.y -= Math.sin(angle) * moveBack;
+                player2.x += Math.cos(angle) * moveBack; player2.y += Math.sin(angle) * moveBack;
+                const tackleChance = 0.35; 
+                if (player1.hasBall && ball.controlledBy === player1 && (player2.isSprinting || Math.abs(player2.dx) + Math.abs(player2.dy) > PLAYER_SPEED*0.5) ) {
+                    if (Math.random() < tackleChance) { player1.hasBall = false; ball.controlledBy = null; ball.dx += (Math.random() - 0.5) * KICK_STRENGTH * 0.05; ball.dy += (Math.random() - 0.5) * KICK_STRENGTH * 0.05; createParticles(player1.x, player1.y, 3, player2.color); }
+                } else if (player2.hasBall && ball.controlledBy === player2 && (player1.isSprinting || Math.abs(player1.dx) + Math.abs(player1.dy) > PLAYER_SPEED*0.5) ) {
+                    if (Math.random() < tackleChance) { player2.hasBall = false; ball.controlledBy = null; ball.dx += (Math.random() - 0.5) * KICK_STRENGTH * 0.05; ball.dy += (Math.random() - 0.5) * KICK_STRENGTH * 0.05; createParticles(player2.x, player2.y, 3, player1.color); }
                 }
             }
-
-            // Ball-Goalkeeper collision
-            [goalkeeper1, goalkeeper2].forEach((gk, index) => {
-                if (ball.controlledBy === null || Math.sqrt(ball.dx**2 + ball.dy**2) > PLAYER_SPEED * 0.8) { // GK only interacts with fast/loose ball
-                    const distBetween = distance(gk.x, gk.y, ball.x, ball.y);
-                    const saveRadius = GOALKEEPER_RADIUS + BALL_RADIUS - (1 * scaleFactor); // Slightly smaller save radius for Sensi feel
-
+            [goalkeeper1, goalkeeper2].forEach((gk) => {
+                if (ball.controlledBy === null || Math.sqrt(ball.dx**2 + ball.dy**2) > PLAYER_SPEED * 0.8) { 
+                    const distBetween = distance(gk.x, gk.y, ball.x, ball.y); const saveRadius = GOALKEEPER_RADIUS + BALL_RADIUS - (1 * scaleFactor); 
                     if (distBetween < saveRadius) {
-                        const isGk1 = (gk === goalkeeper1);
-                        let clearAngle;
-                        // Determine general direction to clear (away from goal center)
-                        if (isPortraitMode) {
-                            clearAngle = isGk1 ? Math.PI / 2 + (Math.random() - 0.5) * 1.2 : -Math.PI / 2 + (Math.random() - 0.5) * 1.2; // GK1 clears "down", GK2 "up"
-                            if (ball.x < canvas.width/2) clearAngle += (Math.random() * 0.3 - 0.15) * (isGk1 ? 1: -1); // Angle slightly towards side
-                            else clearAngle -= (Math.random() * 0.3 - 0.15) * (isGk1 ? 1: -1);
-                        } else {
-                            clearAngle = isGk1 ? (Math.random() - 0.5) * Math.PI * 0.6 : Math.PI + (Math.random() - 0.5) * Math.PI * 0.6; // GK1 clears "right", GK2 "left"
-                             if (ball.y < canvas.height/2) clearAngle += (Math.random() * 0.3 - 0.15) * (isGk1 ? 1: -1);
-                             else clearAngle -= (Math.random() * 0.3 - 0.15) * (isGk1 ? 1: -1);
-                        }
-                        
-                        const saveStrength = KICK_STRENGTH * (0.3 + Math.random() * 0.3); // Weaker, variable saves
-
-                        ball.dx = Math.cos(clearAngle) * saveStrength + gk.dx * 0.05; // Less influence from GK movement
-                        ball.dy = Math.sin(clearAngle) * saveStrength + gk.dy * 0.05;
-
-                        // Push ball out of GK slightly
+                        const isGk1 = (gk === goalkeeper1); let clearAngle;
+                        if (isPortraitMode) { clearAngle = isGk1 ? Math.PI / 2 + (Math.random() - 0.5) * 1.2 : -Math.PI / 2 + (Math.random() - 0.5) * 1.2; if (ball.x < canvas.width/2) clearAngle += (Math.random() * 0.3 - 0.15) * (isGk1 ? 1: -1); else clearAngle -= (Math.random() * 0.3 - 0.15) * (isGk1 ? 1: -1); } 
+                        else { clearAngle = isGk1 ? (Math.random() - 0.5) * Math.PI * 0.6 : Math.PI + (Math.random() - 0.5) * Math.PI * 0.6; if (ball.y < canvas.height/2) clearAngle += (Math.random() * 0.3 - 0.15) * (isGk1 ? 1: -1); else clearAngle -= (Math.random() * 0.3 - 0.15) * (isGk1 ? 1: -1); }
+                        const saveStrength = KICK_STRENGTH * (0.3 + Math.random() * 0.3); 
+                        ball.dx = Math.cos(clearAngle) * saveStrength + gk.dx * 0.05; ball.dy = Math.sin(clearAngle) * saveStrength + gk.dy * 0.05;
                         const pushAngle = Math.atan2(ball.y - gk.y, ball.x - gk.x);
-                        ball.x += Math.cos(pushAngle) * (saveRadius - distBetween + 1*scaleFactor); 
-                        ball.y += Math.sin(pushAngle) * (saveRadius - distBetween + 1*scaleFactor);
-                        
-                        ball.controlledBy = null; 
-                        if(player1) player1.hasBall = false; if(player2) player2.hasBall = false;
-                        ball.lastTouchedBy = gk; 
-                        playSoundEffect(soundEffects.ballBounce, 0.6);
-
-                        createParticles(ball.x, ball.y, 5, gk.color);
-                        triggerScreenShake(1, 5);
+                        ball.x += Math.cos(pushAngle) * (saveRadius - distBetween + 1*scaleFactor); ball.y += Math.sin(pushAngle) * (saveRadius - distBetween + 1*scaleFactor);
+                        ball.controlledBy = null; if(player1) player1.hasBall = false; if(player2) player2.hasBall = false; ball.lastTouchedBy = gk; 
+                        playSoundEffect('ballBounce', {note: "G3"}); createParticles(ball.x, ball.y, 5, gk.color); triggerScreenShake(1, 5);
                     }
                 }
             });
         }
         
         function goalScored(scoringPlayer) {
-            if (gameState !== 'PLAYING') return;
-            gameState = 'GOAL_SCORED';
-            scoringPlayer.score++;
-            updateScores();
-            playSoundEffect(soundEffects.goalCheer, 0.9);
-            playSoundEffect(soundEffects.whistleShort, 1.0);
-            showMessage("GOAL!!!", 2200, true); 
-            triggerScreenShake(4, 15); 
+            if (gameState !== 'PLAYING' || !scoringPlayer) return;
+            gameState = 'GOAL_SCORED'; scoringPlayer.score++; updateScores();
+            playSoundEffect('goalCheer'); playSoundEffect('whistleShort');
+            showMessage("GOAL!!!", 2200, true); triggerScreenShake(4, 15); 
             createParticles(canvas.width / 2, canvas.height / 2, 25, getComputedStyle(document.documentElement).getPropertyValue('--particle-color-goal').trim()); 
-            
             const originalPitchColor = getComputedStyle(document.documentElement).getPropertyValue('--pitch-green').trim();
             document.documentElement.style.setProperty('--pitch-green', '#33cc33'); 
-            setTimeout(() => {
-                document.documentElement.style.setProperty('--pitch-green', originalPitchColor);
-            }, 150); 
-
-            // Sensi often has a max score or leads to game end faster
-            if (scoringPlayer.score >= 3) { // Reduced goal limit for faster games
-                endGame(scoringPlayer === player1 ? "Player 1" : "Player 2");
-            }
+            setTimeout(() => { document.documentElement.style.setProperty('--pitch-green', originalPitchColor); }, 150); 
+            if (scoringPlayer.score >= 3) endGame(scoringPlayer === player1 ? player1.teamName || "Player 1" : player2.teamName || "Player 2");
         }
 
         function resetPositions(resetScores = true) {
             updateScaledConstants(); 
-
             const p1Color = getComputedStyle(document.documentElement).getPropertyValue('--player1-neon').trim();
             const p2Color = getComputedStyle(document.documentElement).getPropertyValue('--player2-neon').trim();
             const gk1Color = getComputedStyle(document.documentElement).getPropertyValue('--gk1-neon').trim();
             const gk2Color = getComputedStyle(document.documentElement).getPropertyValue('--gk2-neon').trim();
             const ballColor = getComputedStyle(document.documentElement).getPropertyValue('--ball-neon').trim();
-
-            let p1ScoreValue = player1 ? player1.score : 0; 
-            let p2ScoreValue = player2 ? player2.score : 0;
-            if (resetScores) { p1ScoreValue = 0; p2ScoreValue = 0; }
-
-            // Common properties for players
+            let p1ScoreValue = player1 ? player1.score : 0; let p2ScoreValue = player2 ? player2.score : 0;
+            let p1Name = player1 ? player1.teamName : "P1"; let p2Name = player2 ? player2.teamName : "P2";
+            if (resetScores) { p1ScoreValue = 0; p2ScoreValue = 0; p1Name = "P1"; p2Name = "P2"; }
             const playerCommon = { dx: 0, dy: 0, isSprinting: false, hasBall: false, isKicking: false, kickCharge: 0, actionButtonDown: false, actionButtonStartTime: 0, lastMoveAngle: 0 };
-            
-            // Player 1 (Human) attacks P2's goal (Right in Landscape, Top in Portrait)
-            // Player 2 (AI)    attacks P1's goal (Left in Landscape, Bottom in Portrait)
-            // NOTE: This means P1 (bottom) attacks UP (Y=0) in portrait. P2 (top) attacks DOWN (Y=canvas.height) in portrait.
-            // The original code had P1 attacking P2's goal (right/top), P2 attacking P1's goal (left/bottom)
-            // Let's stick to: P1 (BLUE) attacks RIGHT (landscape) / TOP (portrait)
-            // P2 (RED) attacks LEFT (landscape) / BOTTOM (portrait)
-
             if (isPortraitMode) {
-                player1 = { ...playerCommon, x: canvas.width / 2, y: canvas.height * 0.70, score: p1ScoreValue, color: p1Color, lastMoveAngle: -Math.PI/2 }; // Starts lower, attacks UP
-                player2 = { ...playerCommon, x: canvas.width / 2, y: canvas.height * 0.30, score: p2ScoreValue, color: p2Color, lastMoveAngle: Math.PI/2 };  // Starts higher, attacks DOWN
-                
-                goalkeeper1 = { initialX: canvas.width / 2, initialY: GOALKEEPER_RADIUS * 1.5, x: canvas.width / 2, y: GOALKEEPER_RADIUS * 1.5, dx: 0, dy: 0, color: gk1Color }; // P1's GK (defends top goal)
-                goalkeeper2 = { initialX: canvas.width / 2, initialY: canvas.height - GOALKEEPER_RADIUS * 1.5, x: canvas.width / 2, y: canvas.height - GOALKEEPER_RADIUS * 1.5, dx: 0, dy: 0, color: gk2Color }; // P2's GK (defends bottom goal)
-            } else { // Landscape
-                player1 = { ...playerCommon, x: canvas.width * 0.30, y: canvas.height / 2, score: p1ScoreValue, color: p1Color, lastMoveAngle: 0 }; // Starts left, attacks RIGHT
-                player2 = { ...playerCommon, x: canvas.width * 0.70, y: canvas.height / 2, score: p2ScoreValue, color: p2Color, lastMoveAngle: Math.PI }; // Starts right, attacks LEFT
-
-                goalkeeper1 = { initialX: GOALKEEPER_RADIUS * 1.5, initialY: canvas.height / 2, x: GOALKEEPER_RADIUS * 1.5, y: canvas.height / 2, dx: 0, dy: 0, color: gk1Color }; // P1's GK (defends left goal)
-                goalkeeper2 = { initialX: canvas.width - GOALKEEPER_RADIUS * 1.5, initialY: canvas.height / 2, x: canvas.width - GOALKEEPER_RADIUS * 1.5, y: canvas.height / 2, dx: 0, dy: 0, color: gk2Color }; // P2's GK (defends right goal)
+                player1 = { ...playerCommon, x: canvas.width / 2, y: canvas.height * 0.70, score: p1ScoreValue, color: p1Color, teamName: p1Name, lastMoveAngle: -Math.PI/2 };
+                player2 = { ...playerCommon, x: canvas.width / 2, y: canvas.height * 0.30, score: p2ScoreValue, color: p2Color, teamName: p2Name, lastMoveAngle: Math.PI/2 };  
+                goalkeeper1 = { initialX: canvas.width / 2, initialY: GOAL_DEPTH + GOALKEEPER_RADIUS, x: canvas.width / 2, y: GOAL_DEPTH + GOALKEEPER_RADIUS, dx: 0, dy: 0, color: gk1Color }; 
+                goalkeeper2 = { initialX: canvas.width / 2, initialY: canvas.height - (GOAL_DEPTH + GOALKEEPER_RADIUS), x: canvas.width / 2, y: canvas.height - (GOAL_DEPTH + GOALKEEPER_RADIUS), dx: 0, dy: 0, color: gk2Color }; 
+            } else { 
+                player1 = { ...playerCommon, x: canvas.width * 0.30, y: canvas.height / 2, score: p1ScoreValue, color: p1Color, teamName: p1Name, lastMoveAngle: 0 }; 
+                player2 = { ...playerCommon, x: canvas.width * 0.70, y: canvas.height / 2, score: p2ScoreValue, color: p2Color, teamName: p2Name, lastMoveAngle: Math.PI }; 
+                goalkeeper1 = { initialX: GOAL_DEPTH + GOALKEEPER_RADIUS, initialY: canvas.height / 2, x: GOAL_DEPTH + GOALKEEPER_RADIUS, y: canvas.height / 2, dx: 0, dy: 0, color: gk1Color }; 
+                goalkeeper2 = { initialX: canvas.width - (GOAL_DEPTH + GOALKEEPER_RADIUS), initialY: canvas.height / 2, x: canvas.width - (GOAL_DEPTH + GOALKEEPER_RADIUS), y: canvas.height / 2, dx: 0, dy: 0, color: gk2Color }; 
             }
-            
-            ball = {
-                x: canvas.width / 2, y: canvas.height / 2,
-                dx: 0, dy: 0, // Kick-off ball is stationary
-                color: ballColor, controlledBy: null, lastTouchedBy: null
-            };
-            // Randomly assign ball to a player for kick-off if not first kick-off
-            if(gameState !== 'INITIAL' && !resetScores) {
-                const kickoffPlayer = Math.random() < 0.5 ? player1 : player2;
-                kickoffPlayer.hasBall = true;
-                ball.controlledBy = kickoffPlayer;
+            ball = { x: canvas.width / 2, y: canvas.height / 2, dx: 0, dy: 0, color: ballColor, controlledBy: null, lastTouchedBy: null };
+            if(gameState !== 'INITIAL' && !resetScores) { 
+                const kickoffPlayer = ball.lastTouchedBy === player1 ? player2 : player1; 
+                kickoffPlayer.hasBall = true; ball.controlledBy = kickoffPlayer;
+                const angle = kickoffPlayer.lastMoveAngle; ball.x = kickoffPlayer.x + Math.cos(angle) * DRIBBLING_OFFSET_DISTANCE; ball.y = kickoffPlayer.y + Math.sin(angle) * DRIBBLING_OFFSET_DISTANCE;
             }
-
-
             ballTrail = []; particles = []; updateScores(); 
         }
 
         function startGameTimer() {
-            timeLeft = GAME_DURATION_SECONDS;
-            updateTimerDisplay();
+            timeLeft = GAME_DURATION_SECONDS; updateTimerDisplay();
             if (gameTimerInterval) clearInterval(gameTimerInterval);
-            gameTimerInterval = setInterval(() => {
-                if (gameState === 'PLAYING') {
-                    timeLeft--;
-                    updateTimerDisplay();
-                    if (timeLeft <= 0) endGame();
-                }
-            }, 1000);
+            gameTimerInterval = setInterval(() => { if (gameState === 'PLAYING') { timeLeft--; updateTimerDisplay(); if (timeLeft <= 0) endGame(); } }, 1000);
         }
 
         function startGame() {
             if (gameState === 'PLAYING') return;
-            messageDisplay.classList.remove('show', 'goal-celebration'); 
-            messageDisplay.style.display = 'none';
-            resetPositions(true); 
-            startGameTimer();
-            gameState = 'READY';
-            playSoundEffect(soundEffects.whistleLong, 0.8);
-            showMessage("KICK OFF!", 1200);
-            setTimeout(() => { if(gameState === 'READY') gameState = 'PLAYING'; }, 1200);
+            resetGeminiUsage(); 
+            initAudio().then(() => { 
+                messageDisplay.classList.remove('show', 'goal-celebration'); messageDisplay.style.display = 'none';
+                banterDisplay.style.display = 'none'; 
+                resetPositions(true); startGameTimer(); gameState = 'READY';
+                playSoundEffect('whistleLong'); showMessage("KICK OFF!", 1200);
+                setTimeout(() => { if(gameState === 'READY') gameState = 'PLAYING'; }, 1200);
+            }).catch(err => console.error("Failed to start audio for game:", err));
         }
 
         function endGame(winner = null) {
-            gameState = 'GAME_OVER';
-            clearInterval(gameTimerInterval);
-            playSoundEffect(soundEffects.whistleLong, 0.8);
+            gameState = 'GAME_OVER'; clearInterval(gameTimerInterval); playSoundEffect('whistleLong');
             let message = "TIME UP! ";
+            let p1FinalName = (player1 && player1.teamName) ? player1.teamName : "P1";
+            let p2FinalName = (player2 && player2.teamName) ? player2.teamName : "P2";
+
             if (winner) message = `${winner} WINS!`;
             else {
-                if (player1.score > player2.score) message += "P1 WINS!";
-                else if (player2.score > player1.score) message += "P2 WINS!";
+                if (player1.score > player2.score) message += `${p1FinalName} WINS!`;
+                else if (player2.score > player1.score) message += `${p2FinalName} WINS!`;
                 else message += "IT'S A DRAW!";
             }
             message += isTouchDevice ? "\nTap KICK for New Game" : "\nENTER for New Game";
@@ -1220,121 +1182,60 @@
 
         function setupTouchControls() {
             if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-                isTouchDevice = true;
-                touchControlsContainer.style.display = 'flex';
-                controlsInfoDisplay.style.display = 'none';
-
+                isTouchDevice = true; touchControlsContainer.style.display = 'flex';
+                if(controlsInfoDisplay) controlsInfoDisplay.style.display = 'none';
                 joystickArea.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    if (touchState.joystickTouchId === null) {
-                        touchState.joystickTouchId = e.changedTouches[0].identifier;
-                        touchState.joystickActive = true;
-                        touchState.joystickStartX = joystickArea.offsetWidth / 2;
-                        touchState.joystickStartY = joystickArea.offsetHeight / 2;
-                        joystickNub.style.transition = ''; 
-                        updateJoystickNub(e.changedTouches[0]);
-                    }
+                    e.preventDefault(); if (touchState.joystickTouchId === null) { touchState.joystickTouchId = e.changedTouches[0].identifier; touchState.joystickActive = true; touchState.joystickStartX = joystickArea.offsetWidth / 2; touchState.joystickStartY = joystickArea.offsetHeight / 2; joystickNub.style.transition = ''; updateJoystickNub(e.changedTouches[0]); }
                 }, { passive: false });
-
                 document.addEventListener('touchmove', (e) => { 
-                    if (touchState.joystickActive && touchState.joystickTouchId !== null) {
-                        for (let i = 0; i < e.changedTouches.length; i++) {
-                            if (e.changedTouches[i].identifier === touchState.joystickTouchId) {
-                                e.preventDefault(); 
-                                updateJoystickNub(e.changedTouches[i]);
-                                break;
-                            }
-                        }
-                    }
+                    if (touchState.joystickActive && touchState.joystickTouchId !== null) { for (let i = 0; i < e.changedTouches.length; i++) { if (e.changedTouches[i].identifier === touchState.joystickTouchId) { e.preventDefault(); updateJoystickNub(e.changedTouches[i]); break; } } }
                 }, { passive: false });
-
                 const touchendOrCancel = (e) => {
-                    if (touchState.joystickTouchId !== null) {
-                        for (let i = 0; i < e.changedTouches.length; i++) {
-                            if (e.changedTouches[i].identifier === touchState.joystickTouchId) {
-                                touchState.joystickActive = false;
-                                touchState.joystickTouchId = null;
-                                joystickNub.style.transition = 'top 0.1s ease-out, left 0.1s ease-out';
-                                joystickNub.style.left = '50%';
-                                joystickNub.style.top = '50%';
-                                break;
-                            }
-                        }
-                    }
+                    if (touchState.joystickTouchId !== null) { for (let i = 0; i < e.changedTouches.length; i++) { if (e.changedTouches[i].identifier === touchState.joystickTouchId) { touchState.joystickActive = false; touchState.joystickTouchId = null; joystickNub.style.transition = 'top 0.1s ease-out, left 0.1s ease-out'; joystickNub.style.left = '50%'; joystickNub.style.top = '50%'; break; } } }
                 };
-                document.addEventListener('touchend', touchendOrCancel); 
-                document.addEventListener('touchcancel', touchendOrCancel); 
-
+                document.addEventListener('touchend', touchendOrCancel); document.addEventListener('touchcancel', touchendOrCancel); 
                 function updateJoystickNub(touch) {
-                    const rect = joystickArea.getBoundingClientRect(); 
-                    let x = touch.clientX - rect.left;
-                    let y = touch.clientY - rect.top;
-                    const centerX = joystickArea.offsetWidth / 2;
-                    const centerY = joystickArea.offsetHeight / 2;
-                    const deltaX = x - centerX;
-                    const deltaY = y - centerY;
-                    let dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                    const rect = joystickArea.getBoundingClientRect(); let x = touch.clientX - rect.left; let y = touch.clientY - rect.top;
+                    const centerX = joystickArea.offsetWidth / 2; const centerY = joystickArea.offsetHeight / 2;
+                    const deltaX = x - centerX; const deltaY = y - centerY; let dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
                     const maxDist = joystickArea.offsetWidth / 2 - joystickNub.offsetWidth / 2;
-
-                    if (dist > maxDist) {
-                        x = centerX + (deltaX / dist) * maxDist;
-                        y = centerY + (deltaY / dist) * maxDist;
-                    }
+                    if (dist > maxDist) { x = centerX + (deltaX / dist) * maxDist; y = centerY + (deltaY / dist) * maxDist; }
                     joystickNub.style.left = `${x}px`; joystickNub.style.top = `${y}px`;
                     touchState.joystickCurrentX = x; touchState.joystickCurrentY = y;
                 }
-
                 kickButton.addEventListener('touchstart', (e) => {
-                    e.preventDefault(); 
-                    if (player1) {
-                        player1.actionButtonDown = true;
-                        player1.actionButtonStartTime = performance.now();
-                        player1.kickCharge = 0; // Reset charge on new press
-                    }
+                    e.preventDefault(); if (player1) { player1.actionButtonDown = true; player1.actionButtonStartTime = performance.now(); player1.kickCharge = 0; }
                     if (gameState === 'GAME_OVER' || gameState === 'INITIAL') startGame();
                 }, { passive: false });
 
                 kickButton.addEventListener('touchend', (e) => { 
                     e.preventDefault(); 
-                     if (player1) {
-                        if (player1.actionButtonDown && player1.hasBall) { // If button was down and player has ball, it's a kick
-                            player1.isKicking = true; // Signal to kick in update loop
-                            // kickCharge is already set by hold duration or defaults to 0 for tap (handled by updateFieldPlayer using MIN_KICK_POWER_FACTOR)
+                    if (player1) {
+                        // KICK DEBUG: Log touch end event
+                        console.log(`[Touch Kick End] P1 hasBall: ${player1.hasBall}, actionButtonDown: ${player1.actionButtonDown}`);
+                        if (player1.actionButtonDown && player1.hasBall) {
+                            player1.isKicking = true; 
+                            console.log(`[Touch Kick End] player1.isKicking SET TO TRUE`);
                         }
-                        player1.actionButtonDown = false;
+                        player1.actionButtonDown = false; 
                     }
                 }, { passive: false });
-                kickButton.addEventListener('touchcancel', (e) => { /* Same as touchend */
-                     e.preventDefault(); 
-                     if (player1) {player1.actionButtonDown = false;}
-                }, { passive: false });
 
-            } else {
-                touchControlsContainer.style.display = 'none';
-            }
+                kickButton.addEventListener('touchcancel', (e) => { e.preventDefault(); if (player1) {player1.actionButtonDown = false;} }, { passive: false });
+            } else touchControlsContainer.style.display = 'none';
         }
         
         function gameLoop(timestamp) {
-            const deltaTime = Math.min(32, timestamp - lastTime); // Cap deltaTime to prevent large jumps (e.g. on tab switch) Max 32ms (~30fps)
-            lastTime = timestamp;
-
+            const deltaTime = Math.min(32, timestamp - lastTime); lastTime = timestamp;
             if (screenShakeDuration > 0) {
-                const shakeX = (Math.random() - 0.5) * screenShakeMagnitude;
-                const shakeY = (Math.random() - 0.5) * screenShakeMagnitude;
-                canvasWrapper.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
-                screenShakeDuration--;
-            } else {
-                canvasWrapper.style.transform = 'translate(0,0)';
-            }
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawPitch();
-            if (ball) { updateAndDrawBallTrail(); }
-            updateAndDrawParticles(); 
-
+                const shakeX = (Math.random() - 0.5) * screenShakeMagnitude; const shakeY = (Math.random() - 0.5) * screenShakeMagnitude;
+                canvasWrapper.style.transform = `translate(${shakeX}px, ${shakeY}px)`; screenShakeDuration--;
+            } else canvasWrapper.style.transform = 'translate(0,0)';
+            ctx.clearRect(0, 0, canvas.width, canvas.height); drawPitch();
+            if (ball) updateAndDrawBallTrail(); updateAndDrawParticles(); 
             if (gameState === 'PLAYING' || gameState === 'GOAL_SCORED' || gameState === 'READY') {
                 if (player1 && player2 && ball && goalkeeper1 && goalkeeper2) { 
-                    updateFieldPlayer(player1, false, deltaTime);
+                    updateFieldPlayer(player1, false, deltaTime); 
                     updateFieldPlayer(player2, true, deltaTime);
                     updateGoalkeeper(goalkeeper1, true, deltaTime); 
                     updateGoalkeeper(goalkeeper2, false, deltaTime); 
@@ -1342,57 +1243,58 @@
                     handleCollisions();
                 }
             }
-            
             if (player1 && player2 && ball && goalkeeper1 && goalkeeper2) { 
-                drawFieldPlayer(player1);
+                drawFieldPlayer(player1); 
                 drawFieldPlayer(player2);
-                drawGoalkeeper(goalkeeper1);
-                drawGoalkeeper(goalkeeper2);
+                drawGoalkeeper(goalkeeper1); 
+                drawGoalkeeper(goalkeeper2); 
                 drawBall(); 
             }
-            
             requestAnimationFrame(gameLoop);
         }
 
         window.addEventListener('keydown', (e) => {
-            keys[e.key.toLowerCase()] = true; // Use toLowerCase for wasd/WASD
+            keys[e.key.toLowerCase()] = true; 
             if (e.key === 'Enter' && (gameState === 'GAME_OVER' || gameState === 'INITIAL')) startGame();
-
-            if ((e.key === ' ' || e.key.toLowerCase() === 'k') && player1 && !player1.actionButtonDown) {
-                 player1.actionButtonDown = true;
-                 player1.actionButtonStartTime = performance.now();
-                 player1.kickCharge = 0; // Reset charge on new press
+            if ((e.key === ' ' || e.key.toLowerCase() === 'k') && player1 && !player1.actionButtonDown) { 
+                player1.actionButtonDown = true; 
+                player1.actionButtonStartTime = performance.now(); 
+                player1.kickCharge = 0; 
             }
         });
         window.addEventListener('keyup', (e) => {
             keys[e.key.toLowerCase()] = false;
-            if ((e.key === ' ' || e.key.toLowerCase() === 'k') && player1) {
-                if (player1.actionButtonDown && player1.hasBall) { // If button was down and player has ball, it's a kick
-                    player1.isKicking = true; // Signal to kick in update loop
+            if ((e.key === ' ' || e.key.toLowerCase() === 'k') && player1) { 
+                // KICK DEBUG: Log key up event
+                console.log(`[Key Kick Up] P1 hasBall: ${player1.hasBall}, actionButtonDown: ${player1.actionButtonDown}`);
+                if (player1.actionButtonDown && player1.hasBall) { 
+                    player1.isKicking = true; 
+                    console.log(`[Key Kick Up] player1.isKicking SET TO TRUE`);
                 }
-                player1.actionButtonDown = false;
+                player1.actionButtonDown = false; 
             }
         });
 
         document.addEventListener('DOMContentLoaded', () => {
-            setupTouchControls();
-            resizeCanvas(); 
-            resetPositions(true); 
+            setupTouchControls(); resizeCanvas(); resetPositions(true); 
             showMessage(isTouchDevice ? "Pixel Pitch Pro\nTap KICK to Start" : "Pixel Pitch Pro\nPress Enter to Start", -1);
-            lastTime = performance.now();
-            requestAnimationFrame(gameLoop); 
-
+            lastTime = performance.now(); requestAnimationFrame(gameLoop); 
             const muteButton = document.getElementById('muteButton');
-            if (muteButton) { // Ensure the button exists
+            if (muteButton) { 
                 muteButton.addEventListener('click', () => {
-                    isMuted = !isMuted;
-                    muteButton.textContent = isMuted ? "Unmute" : "Mute";
-                    // Optional: play a small UI click sound if you have one and it's desired even when muting other sounds
-                    // if (!isMuted) playSoundEffect(soundEffects.uiClick, 0.5); // Example
+                    isMuted = !isMuted; muteButton.textContent = isMuted ? "Unmute" : "Mute";
+                    if (!isMuted) { 
+                         initAudio().catch(err => console.error("Error re-initializing audio on unmute:", err));
+                    }
                 });
             }
+            if (!isMuted) {
+                 initAudio().catch(err => console.warn("Initial audio context start failed (will retry on game start):", err));
+            }
+
+            if (teamNameButton) teamNameButton.addEventListener('click', generateTeamNames);
+            if (banterButton) banterButton.addEventListener('click', getGameBanter);
         });
     </script>
 </body>
 </html>
-```
