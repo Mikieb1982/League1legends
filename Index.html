@@ -343,7 +343,7 @@
 
         let particles = [];
         const MAX_PARTICLES = 30; // Reduced for cleaner look
-        const PARTICLE_LIFESPAN = 25; 
+        const DEFAULT_PARTICLE_LIFESPAN = 25; 
 
         let ballTrail = [];
         const BALL_TRAIL_LENGTH = 4; // Shorter trail
@@ -514,15 +514,25 @@
             screenShakeDuration = duration;
         }
 
-        function createParticles(x, y, count, color = getComputedStyle(document.documentElement).getPropertyValue('--particle-color-default').trim()) {
+        function createParticles(x, y, count, color = getComputedStyle(document.documentElement).getPropertyValue('--particle-color-default').trim(), options = {}) {
+            const {
+                lifespan = DEFAULT_PARTICLE_LIFESPAN * (Math.random() * 0.5 + 0.5),
+                size = Math.random() * (2 * scaleFactor) + (0.5 * scaleFactor),
+                baseSpeed = 3 * scaleFactor,
+                dx = (Math.random() - 0.5) * baseSpeed,
+                dy = (Math.random() - 0.5) * baseSpeed
+            } = options;
+
             for (let i = 0; i < count; i++) {
                 if (particles.length < MAX_PARTICLES) {
                     particles.push({
                         x: x, y: y,
-                        dx: (Math.random() - 0.5) * (3 * scaleFactor), // Smaller particle speed
-                        dy: (Math.random() - 0.5) * (3 * scaleFactor),
-                        size: Math.random() * (2 * scaleFactor) + (0.5 * scaleFactor), // Smaller particles
-                        life: PARTICLE_LIFESPAN * (Math.random()*0.5 + 0.5), // Vary lifespan
+                        dx: dx,
+                        dy: dy,
+                        size: size,
+                        initialSize: size, // Store initial size for lifespan-based scaling
+                        life: lifespan,
+                        initialLife: lifespan, // Store initial life for opacity calculation
                         color: color
                     });
                 }
@@ -533,11 +543,43 @@
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
                 p.x += p.dx; p.y += p.dy;
-                p.life--; p.size *= 0.96; 
+                p.life--;
+                
+                // Scale size based on remaining life for a shrink effect
+                p.size = p.initialSize * (p.life / p.initialLife);
+
                 if (p.life <= 0 || p.size < 0.2 * scaleFactor) {
                     particles.splice(i, 1);
                 } else {
-                    ctx.fillStyle = p.color.replace(/[\d\.]+\)$/g, `${Math.max(0,(p.life / PARTICLE_LIFESPAN)) * 0.7})`); 
+                    let opacity = 0.7; // Default opacity
+                    if (p.color.startsWith('rgba')) { // If color is already rgba, try to respect its alpha or use lifespan
+                        const colorParts = p.color.match(/[\d\.]+/g);
+                        if (colorParts && colorParts.length === 4) {
+                             opacity = parseFloat(colorParts[3]) * (p.life / p.initialLife); // Fade out existing alpha
+                        } else { // Fallback if rgba parsing is tricky
+                            opacity = (p.life / p.initialLife) * 0.7;
+                        }
+                    } else { // For hex or other color formats, apply lifespan-based opacity
+                         opacity = (p.life / p.initialLife) * 0.7;
+                    }
+                    opacity = Math.max(0, Math.min(1, opacity)); // Clamp opacity
+
+                    // Reconstruct color with new opacity. Assumes p.color is either hex or rgb/rgba string.
+                    let finalColor = p.color;
+                    if (p.color.startsWith('#')) { // Hex color
+                        const r = parseInt(p.color.slice(1, 3), 16);
+                        const g = parseInt(p.color.slice(3, 5), 16);
+                        const b = parseInt(p.color.slice(5, 7), 16);
+                        finalColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                    } else if (p.color.startsWith('rgb(')) { // rgb(r,g,b)
+                        finalColor = p.color.replace('rgb(', 'rgba(').replace(')', `, ${opacity})`);
+                    } else if (p.color.startsWith('rgba(')) { // rgba(r,g,b,a) - replace existing alpha
+                        finalColor = p.color.replace(/,[\d\.]+\)$/, `, ${opacity})`);
+                    }
+                    // If color is already in a format that updateAndDrawParticles can handle with opacity, this might be simpler.
+                    // For now, this ensures we apply the calculated opacity.
+
+                    ctx.fillStyle = finalColor;
                     ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
                 }
             }
@@ -819,7 +861,7 @@
                 player.kickCharge = 0;
                 if(!isAI) player.actionButtonDown = false; // Reset for human after kick
 
-                createParticles(ball.x, ball.y, 3 + Math.floor(kickPower/KICK_STRENGTH * 5), player.color);
+                createParticles(ball.x, ball.y, 3 + Math.floor(kickPower/KICK_STRENGTH * 5), player.color, { baseSpeed: 4 * scaleFactor, lifespan: DEFAULT_PARTICLE_LIFESPAN * 0.8 });
                 triggerScreenShake(kickPower / KICK_STRENGTH * 1.5, 5 + Math.floor(kickPower/KICK_STRENGTH*5) );
             }
             
@@ -1104,7 +1146,7 @@
             if (resetScores) { p1ScoreValue = 0; p2ScoreValue = 0; }
 
             // Common properties for players
-            const playerCommon = { dx: 0, dy: 0, isSprinting: false, hasBall: false, isKicking: false, kickCharge: 0, actionButtonDown: false, actionButtonStartTime: 0, lastMoveAngle: 0 };
+            const playerCommon = { dx: 0, dy: 0, isSprinting: false, hasBall: false, isKicking: false, kickCharge: 0, actionButtonDown: false, actionButtonStartTime: 0, lastMoveAngle: 0, sprintParticleCounter: 0 };
             
             // Player 1 (Human) attacks P2's goal (Right in Landscape, Top in Portrait)
             // Player 2 (AI)    attacks P1's goal (Left in Landscape, Bottom in Portrait)
