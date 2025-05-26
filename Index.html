@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pixel Pitch Pro - Kick Logic Debugging</title>
+    <title>Pixel Pitch Pro - Mobile Joystick & Render Debug</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
@@ -14,22 +14,22 @@
             
             --player1-jersey: #D00000; 
             --player1-shorts: #202020; 
-            --player1-trim: #FFFFFF;
+            --player1-trim: #FFFFFF; /* Head color for P1 */
             --gk1-jersey: #FF8C00; 
 
             --player2-jersey: #0057B7; 
             --player2-shorts: #FFFFFF; 
-            --player2-trim: #FFD700; 
+            --player2-trim: #FFD700; /* Head color for P2 */
             --gk2-jersey: #32CD32;   
             
-            --ball-color: #FFFFFF;
-            --ball-panel-color: #1E1E1E;
-            --background-dark: #121212; 
-            --pitch-grass-light: #4A7A3A; 
-            --pitch-grass-dark: #3E6630;  
-            --pitch-line-color: rgba(255, 255, 255, 0.75);
+            --ball-color: #FFFFFF; 
+            --ball-panel-color: #1E1E1E; 
+            --background-dark: #102018; 
+            --pitch-grass-light: #4CAF50; 
+            --pitch-grass-dark: #388E3C;  
+            --pitch-line-color: rgba(255, 255, 255, 0.85); 
             --goal-post-color: #E0E0E0; 
-            --goal-net-color: rgba(220, 220, 220, 0.3);
+            --goal-net-color: rgba(200, 200, 200, 0.4); 
             
             --ui-panel-bg: rgba(28, 28, 32, 0.9); 
             --text-light: #F5F5F5;
@@ -48,6 +48,9 @@
             --gemini-button-text: #121212;
             --gemini-button-border: #DAA520; 
             --shadow-color: rgba(0, 0, 0, 0.35);
+
+            --stadium-stand-color-1: #37474F; 
+            --stadium-stand-color-2: #455A64; 
         }
 
         html, body {
@@ -70,7 +73,7 @@
             width: 100%;
             height: 100%;
             position: relative; 
-            background-color: #222; 
+            background-color: var(--background-dark); 
         }
         
         #gameContainer {
@@ -81,6 +84,7 @@
             left: 0;
             overflow: hidden; 
             z-index: 1; 
+            cursor: default; 
         }
 
         #uiContainer {
@@ -119,7 +123,11 @@
         #joystickNub { width: clamp(50px, 10vmin, 70px); height: clamp(50px, 10vmin, 70px); background-color: var(--joystick-nub-bg); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border: 2px solid var(--joystick-nub-border); box-shadow: 0 0 15px var(--joystick-nub-bg); }
         #actionButtonsArea { display: flex; flex-direction: column; align-items: center; }
         .action-button { width: clamp(75px, 17vmin, 95px); height: clamp(75px, 17vmin, 95px); background-color: var(--action-button-bg) ; border: none; box-shadow: 0 3px 8px rgba(0,0,0,0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--action-button-text); font-family: 'Inter', sans-serif; font-weight: 600; font-size: clamp(11px, 2.5vmin, 14px); text-align: center; opacity: 0.95; margin: 8px; user-select: none; pointer-events: auto; transition: background-color 0.1s ease-out, transform 0.05s ease-out, box-shadow 0.1s ease-out; }
-        .action-button:active { background-color: var(--action-button-active-bg); transform: scale(0.92); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+        .action-button.active, .action-button:active { 
+            background-color: var(--action-button-active-bg); 
+            transform: scale(0.92); 
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3); 
+        }
 
     </style>
 </head>
@@ -139,7 +147,7 @@
 
         <div id="messageDisplay">Message</div>
         <div id="controlsInfo">
-             <p>P1: Arrows/WASD, Space/K to Kick/Sprint</p>
+             <p>P1: Arrows/WASD, Space to Kick/Sprint. Q/E for Aftertouch (during kick).</p>
              <p>Enter to Start/Restart</p>
         </div>
     </div>
@@ -151,787 +159,880 @@
         </div>
         <div id="actionButtonsArea" class="touch-control-area">
             <button id="kickButton" class="action-button">KICK</button>
-        </div>
+            </div>
     </div>
 
     <script>
-        console.log("Script execution started.");
+        console.log("Script execution started - Pixel Pitch Pro - Mobile Joystick & Render Debug.");
 
         // --- Three.js Scene Variables ---
-        let scene, camera, renderer, debugCube;
+        let scene, camera, renderer; 
         let pitchMesh;
-        const PITCH_WIDTH_3D = 34; 
-        const PITCH_LENGTH_3D = 52.5; 
-        const PLAYER_CYLINDER_RADIUS = 0.35; 
-        const PLAYER_CYLINDER_HEIGHT = 1.0;  
-        const PLAYER_HEAD_RADIUS = 0.25;
-        const BALL_RADIUS_3D = 0.2;  
-        const GOAL_WIDTH_3D = 7.32 / 2; 
-        const GOAL_HEIGHT_3D = 2.44 / 1.5; 
-        const GOAL_DEPTH_3D = 1.0; 
-        const GOAL_POST_RADIUS = 0.06;
+        const PITCH_LENGTH_METERS = 105; 
+        const PITCH_WIDTH_METERS = 68;   
+        const METER_TO_3D_UNIT = 0.4; 
+        const PITCH_LENGTH_3D = PITCH_LENGTH_METERS * METER_TO_3D_UNIT; 
+        const PITCH_WIDTH_3D = PITCH_WIDTH_METERS * METER_TO_3D_UNIT;   
+
+        const PLAYER_SCALE_FACTOR = 0.8; 
+        const PLAYER_BODY_RADIUS_TOP_3D = (0.25 * PLAYER_SCALE_FACTOR) * METER_TO_3D_UNIT; 
+        const PLAYER_BODY_RADIUS_BOTTOM_3D = (0.30 * PLAYER_SCALE_FACTOR) * METER_TO_3D_UNIT; 
+        const PLAYER_BODY_HEIGHT_3D = (0.8 * PLAYER_SCALE_FACTOR) * METER_TO_3D_UNIT;  
+        const PLAYER_HEAD_RADIUS_3D = (0.20 * PLAYER_SCALE_FACTOR) * METER_TO_3D_UNIT; 
+        const PLAYER_Y_OFFSET = PLAYER_BODY_HEIGHT_3D / 2; 
+        
+        const BALL_RADIUS_METERS = 0.11; 
+        const BALL_RADIUS_3D = BALL_RADIUS_METERS * METER_TO_3D_UNIT * 3; 
+        
+        const GOAL_WIDTH_METERS = 7.32;
+        const GOAL_HEIGHT_METERS = 2.44;
+        const GOAL_WIDTH_3D = GOAL_WIDTH_METERS * METER_TO_3D_UNIT; 
+        const GOAL_HEIGHT_3D = GOAL_HEIGHT_METERS * METER_TO_3D_UNIT; 
+        const GOAL_DEPTH_3D = 2.0 * METER_TO_3D_UNIT; 
+        const GOAL_POST_RADIUS = 0.06 * METER_TO_3D_UNIT; 
+
         const gameMeshes = { player1: null, player2: null, gk1: null, gk2: null, ball: null, goal1: null, goal2: null };
+        let ballPhysics = {
+            velocity: new THREE.Vector3(0, 0, 0),
+            friction: 0.975, 
+            controlledBy: null 
+        };
 
-
-        // --- Gemini API & Sound Engine (Stubs for now) ---
+        // --- DOM Elements ---
         const banterDisplay = document.getElementById('banterDisplay');
         const teamNameButton = document.getElementById('teamNameButton');
         const banterButton = document.getElementById('banterButton');
-        let apiCallCount = 0; 
-        const MAX_API_CALLS_PER_GAME = 10; 
-        let geminiFeaturesDisabled = false; 
-        function resetGeminiUsage() { /* console.log("Gemini usage reset."); */ apiCallCount = 0; geminiFeaturesDisabled = false; if(teamNameButton) teamNameButton.disabled = false; if(banterButton) banterButton.disabled = false;}
-        async function callGemini(prompt) { /* console.log("Gemini called (stub)"); */ apiCallCount++; return "Banter text"; } 
-        async function generateTeamNames() { /* console.log("Generating team names (stub)"); */ await callGemini("names");}
-        async function getGameBanter() { /* console.log("Getting banter (stub)"); */ await callGemini("banter");}
-        let isMuted = false;
-        async function initAudio() { /* console.log("Audio init (stub)"); */ }
-        function playSoundEffect(soundName, options = {}) { /* console.log(`Play sound: ${soundName} (stub)`); */ } 
-        // --- End Stubs ---
-
-        // --- Game Setup ---
-        const gameContainerElement = document.getElementById('gameContainer');
+        const muteButton = document.getElementById('muteButton');
         const player1ScoreDisplay = document.getElementById('player1Score');
         const player2ScoreDisplay = document.getElementById('player2Score');
         const timerDisplay = document.getElementById('timerDisplay');
         const messageDisplay = document.getElementById('messageDisplay');
-        const controlsInfoDisplay = document.getElementById('controlsInfo');
         const touchControlsContainer = document.getElementById('touchControlsContainer');
-        const joystickArea = document.getElementById('joystickArea');
-        const joystickNub = document.getElementById('joystickNub');
-        const kickButton = document.getElementById('kickButton');
-        
-        const LOGICAL_PITCH_WIDTH = 1000; 
-        const LOGICAL_PITCH_HEIGHT = 680; 
-        
-        const GAME_DURATION_SECONDS = 90; 
-        const AI_SPEED_MODIFIER = 0.9; 
-        const AI_SPRINT_MODIFIER = 1.3; 
-        const KICK_CHARGE_RATE = 0.06; 
-        const MAX_KICK_CHARGE = 1.0; 
-        const MIN_KICK_POWER_FACTOR = 0.25; 
-        const AI_KICK_POWER_FACTOR = 0.7;
-        const KICK_TAP_THRESHOLD_MS = 180; 
+        const kickButton = document.getElementById('kickButton'); 
+        const gameContainer = document.getElementById('gameContainer');
+        let joystickArea, joystickNub; // Declare here, assign in initGame or initControls
+
+        // --- Gemini API ---
+        let apiCallCount = 0; 
+        const MAX_API_CALLS_PER_GAME = 10; 
+        let geminiFeaturesDisabled = false; 
+
+        // --- Audio ---
+        let isMuted = false;
+        let audioInitialized = false;
+        const soundEffects = {};
+        const soundDebounceTimes = {}; 
+        const DEBOUNCE_THRESHOLD_MS = 50; 
+
+        // --- Game State Variables ---
+        const PLAYER_NORMAL_SPEED = 7 * METER_TO_3D_UNIT;
+        const PLAYER_SPRINT_SPEED = 11 * METER_TO_3D_UNIT;
+        const SPRINT_DURATION = 1.5; 
+        const KICK_RANGE_MULTIPLIER = 1.5; 
+
+        let g_player1 = { 
+            score: 0, teamName: "Player 1", mesh: null, 
+            currentSpeed: PLAYER_NORMAL_SPEED, 
+            isSprinting: false, sprintTimer: 0,
+            hasBall: false, kickProcessedThisFrame: false
+        }; 
+        let g_player2 = { score: 0, teamName: "Player 2", mesh: null }; 
+        let g_gk1 = { mesh: null };
+        let g_gk2 = { mesh: null };
+        let g_ball = { mesh: null };
+
+        let timeLeft = 90; 
+        let gameLoopId; 
+        let isGameRunning = false;
+        let gamePaused = false; 
+
+        // --- Input State ---
+        let isJoystickActive = false;
+        let joystickInput = { x: 0, y: 0 };
+        let keyboardInput = { forward: 0, back: 0, left: 0, right: 0, kick: false };
 
 
-        let PLAYER_RADIUS_LOGICAL, GOALKEEPER_RADIUS_LOGICAL, BALL_RADIUS_LOGICAL;
-        let PLAYER_SPEED, GOALKEEPER_SPEED, PLAYER_SPRINT_MULTIPLIER, KICK_STRENGTH, MAX_BALL_SPEED, PASS_STRENGTH;
-        let PLAYER_INERTIA, BALL_INERTIA;
-        let DRIBBLING_DISTANCE_THRESHOLD, DRIBBLING_OFFSET_DISTANCE;
+        // --- Initialization ---
+        window.onload = initGame; 
 
-        let player1, player2, ball, goalkeeper1, goalkeeper2;
-        let keys = {};
-        
-        let timeLeft = GAME_DURATION_SECONDS; 
-        let gameTimerInterval; 
-        let gameState = 'INITIAL'; 
-        let isTouchDevice = false; 
-        let lastTime = 0; 
-        let frameCount = 0; 
+        function initGame() {
+            console.log("Initializing game...");
+            // Assign joystick DOM elements here, after DOM is loaded
+            joystickArea = document.getElementById('joystickArea'); 
+            joystickNub = document.getElementById('joystickNub');   
+            if (!joystickArea || !joystickNub) {
+                console.error("CRITICAL: JoystickArea or JoystickNub not found in DOM!");
+            }
 
 
-        function distance(x1, y1, x2, y2) { return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2); }
-        function showMessage(text, duration = 2000, isGoal = false) { 
-            messageDisplay.textContent = text;
-            messageDisplay.classList.remove('hide', 'goal-celebration');
-            messageDisplay.classList.add('show');
-            messageDisplay.style.display = 'block'; 
-            if (isGoal) messageDisplay.classList.add('goal-celebration');
-            if (duration > 0) {
-                setTimeout(() => {
-                    messageDisplay.classList.remove('show'); messageDisplay.classList.add('hide');
-                    setTimeout(() => { if (messageDisplay.classList.contains('hide')) { messageDisplay.style.display = 'none'; messageDisplay.classList.remove('hide'); } }, 150);
-                    if (gameState === 'GOAL_SCORED') { resetPositions(false); gameState = 'READY'; setTimeout(() => { if (gameState === 'READY') gameState = 'PLAYING';}, 1000); }
-                }, duration);
-            } else { messageDisplay.style.display = 'block'; }
+            setupScene(); 
+            createPlayers(); 
+            createGoals();
+            createBall();
+            resetForKickOff(true); 
+            
+            updateCamera(0); 
+            
+            resetGeminiUsage();
+            initControls(); // Joystick listeners are set up here
+            updateScores(); 
+            updateTimerDisplay(); 
+
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                if(touchControlsContainer) touchControlsContainer.style.display = 'flex';
+                 console.log("Touch controls should be visible.");
+            } else {
+                console.log("Not a touch device, or touch detection failed.");
+            }
+            
+            showMessage("Press Enter to Start", false); 
+            console.log("Game initialized. Waiting for user to start.");
+
+            if (renderer && scene && camera) {
+                console.log("Game Container Dimensions:", gameContainer.clientWidth, "x", gameContainer.clientHeight);
+                console.log("Renderer DOM Element (Canvas) Dimensions:", renderer.domElement.width, "x", renderer.domElement.height);
+                renderer.render(scene, camera);
+                console.log("Initial scene rendered.");
+            } else {
+                console.error("Renderer, scene, or camera not initialized for initial render.");
+            }
         }
-        function updateScores() { 
-            if(player1 && player2) { 
-                let p1Name = (player1.teamName && player1.teamName !== "P1") ? player1.teamName : "Team 1"; 
-                let p2Name = (player2.teamName && player2.teamName !== "P2") ? player2.teamName : "Team 2"; 
-                player1ScoreDisplay.textContent = `${p1Name}: ${player1.score}`; 
-                player2ScoreDisplay.textContent = `${p2Name}: ${player2.score}`; 
-            } 
-        }
-        function updateTimerDisplay() { timerDisplay.textContent = `Time: ${timeLeft}`; }
 
-        // --- Three.js Initialization & Drawing ---
-        function initThreeJSScene() {
-            console.log("Attempting to initialize Three.js scene...");
+        function startGame() {
+            console.log("Starting game...");
+            if (!audioInitialized) {
+                initAudio().then(() => { 
+                     playSoundEffect('whistleShort'); 
+                });
+            } else {
+                 playSoundEffect('whistleShort');
+            }
+            
+            isGameRunning = true;
+            gamePaused = false;
+            resetGeminiUsage(); 
+            timeLeft = 90; 
+            
+            resetForKickOff(true); 
+
+            updateScores();
+            updateTimerDisplay();
+            hideMessage();
+            
+            if (gameLoopId) cancelAnimationFrame(gameLoopId); 
+            lastTime = performance.now(); 
+            animate(); 
+            console.log("Game started and animation loop running.");
+        }
+        
+        function setupScene() {
+            // ... (setupScene logic - unchanged)
+            console.log("Setting up scene...");
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x102030); 
-            scene.fog = new THREE.Fog(scene.background, PITCH_LENGTH_3D * 0.8, PITCH_LENGTH_3D * 2.5);
+            scene.background = new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--background-dark').trim());
+            scene.fog = new THREE.Fog(scene.background, PITCH_LENGTH_3D * 1.2, PITCH_LENGTH_3D * 3.0); 
 
             const aspect = window.innerWidth / window.innerHeight;
-            camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 200);
-            camera.position.set(0, PITCH_LENGTH_3D * 0.65, PITCH_WIDTH_3D * 0.9 + 20); 
-            camera.lookAt(0, -PLAYER_CYLINDER_HEIGHT * 0.2 , 0); 
-            console.log("Camera created.");
+            camera = new THREE.PerspectiveCamera(50, aspect, 0.1, PITCH_LENGTH_3D * 5); 
+            
+            camera.position.set(0, PITCH_WIDTH_3D * 0.8, PITCH_LENGTH_3D * 0.75); 
+            camera.lookAt(0, 0, 0); 
+            scene.add(camera);
+            // console.log("Initial camera position set:", camera.position);
+
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.9); 
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.1); 
+            directionalLight.position.set(PITCH_WIDTH_3D * 0.6, PITCH_LENGTH_3D * 0.8, PITCH_LENGTH_3D * 0.6);
+            directionalLight.castShadow = true; 
+            directionalLight.shadow.mapSize.width = 2048; 
+            directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.camera.near = PITCH_LENGTH_3D * 0.05; 
+            directionalLight.shadow.camera.far = PITCH_LENGTH_3D * 3;
+            directionalLight.shadow.camera.left = -PITCH_WIDTH_3D * 1.5;
+            directionalLight.shadow.camera.right = PITCH_WIDTH_3D * 1.5;
+            directionalLight.shadow.camera.top = PITCH_LENGTH_3D * 1.5;
+            directionalLight.shadow.camera.bottom = -PITCH_LENGTH_3D * 1.5;
+            scene.add(directionalLight);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true; 
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+            if (gameContainer) {
+                 gameContainer.appendChild(renderer.domElement);
+            } else {
+                console.error("gameContainer not found for renderer!");
+            }
             
-            if (!gameContainerElement) { console.error("CRITICAL: gameContainerElement not found!"); return; }
-            gameContainerElement.appendChild(renderer.domElement);
-            console.log("Renderer appended.");
+            drawPitchMarkings(); 
+            createStadium();
 
-            const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
-            scene.add(hemisphereLight);
-            const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-            dirLight.position.set(-30, 40, 25); 
-            dirLight.castShadow = true;
-            dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
-            dirLight.shadow.camera.near = 5; dirLight.shadow.camera.far = 120; 
-            dirLight.shadow.camera.left = -PITCH_WIDTH_3D * 1.2; dirLight.shadow.camera.right = PITCH_WIDTH_3D * 1.2;
-            dirLight.shadow.camera.top = PITCH_LENGTH_3D * 1.2; dirLight.shadow.camera.bottom = -PITCH_LENGTH_3D * 1.2;
-            scene.add(dirLight);
-            console.log("Lights added.");
-
-            createPitch3D();
-            createGoals3D();
-            createPlayerMeshes();
-            createBallMesh();
-            
-            const geometry = new THREE.BoxGeometry(1, 1, 1);
-            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
-            debugCube = new THREE.Mesh(geometry, material);
-            debugCube.position.set(0, 5, 0); 
-            scene.add(debugCube);
-            console.log("Debug cube added.");
-
-            window.addEventListener('resize', onWindowResizeThree, false);
-            console.log("Three.js scene initialization complete. Starting gameLoop.");
-            if (renderer && scene && camera) gameLoop(); else console.error("Render loop start aborted.");
+            console.log("Scene setup complete.");
+            window.addEventListener('resize', onWindowResize, false);
         }
 
-        function createPitch3D() {
-            const pitchCanvas = document.createElement('canvas');
-            const pitchCtx = pitchCanvas.getContext('2d');
-            pitchCanvas.width = 256; pitchCanvas.height = 512; 
-            const numStripes = 14; 
-            const stripeHeight = pitchCanvas.height / numStripes;
-            for(let i=0; i<numStripes; i++){
-                pitchCtx.fillStyle = (i%2 === 0) ? getComputedStyle(document.documentElement).getPropertyValue('--pitch-grass-light').trim() 
-                                                : getComputedStyle(document.documentElement).getPropertyValue('--pitch-grass-dark').trim();
-                pitchCtx.fillRect(0, i*stripeHeight, pitchCanvas.width, stripeHeight);
-            }
-            const pitchTexture = new THREE.CanvasTexture(pitchCanvas);
-            pitchTexture.wrapS = THREE.RepeatWrapping; pitchTexture.wrapT = THREE.RepeatWrapping;
-            pitchTexture.repeat.set(PITCH_WIDTH_3D / 8, PITCH_LENGTH_3D / 8); 
-            pitchTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        function drawPitchMarkings() {
+            // ... (drawPitchMarkings logic - unchanged)
+            const canvas = document.createElement('canvas');
+            const textureWidth = 1024; 
+            const textureHeight = Math.round(textureWidth * (PITCH_LENGTH_METERS / PITCH_WIDTH_METERS));
+            canvas.width = textureWidth;
+            canvas.height = textureHeight;
+            const context = canvas.getContext('2d');
 
-            const pitchMaterial = new THREE.MeshStandardMaterial({ map: pitchTexture, roughness: 0.9, metalness: 0.05 }); 
-            pitchMesh = new THREE.Mesh(new THREE.PlaneGeometry(PITCH_WIDTH_3D, PITCH_LENGTH_3D), pitchMaterial);
-            pitchMesh.rotation.x = -Math.PI / 2; 
+            context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pitch-grass-light').trim();
+            context.fillRect(0, 0, canvas.width, canvas.height);
+
+            const lineColor = getComputedStyle(document.documentElement).getPropertyValue('--pitch-line-color').trim();
+            const lineWidthPixels = 4; 
+            context.strokeStyle = lineColor;
+            context.lineWidth = lineWidthPixels;
+
+            const m2px_w = (val) => (val / PITCH_WIDTH_METERS) * textureWidth;
+            const m2px_l = (val) => (val / PITCH_LENGTH_METERS) * textureHeight;
+            
+            context.strokeRect(lineWidthPixels / 2, lineWidthPixels / 2, textureWidth - lineWidthPixels, textureHeight - lineWidthPixels);
+
+            context.beginPath();
+            context.moveTo(lineWidthPixels / 2, textureHeight / 2);
+            context.lineTo(textureWidth - lineWidthPixels / 2, textureHeight / 2);
+            context.stroke();
+
+            const centerCircleRadiusMeters = 9.15;
+            context.beginPath();
+            context.arc(textureWidth / 2, textureHeight / 2, m2px_w(centerCircleRadiusMeters), 0, 2 * Math.PI);
+            context.stroke();
+            context.beginPath();
+            context.arc(textureWidth / 2, textureHeight / 2, m2px_w(0.15), 0, 2 * Math.PI); 
+            context.fillStyle = lineColor;
+            context.fill();
+
+            const penaltyAreaWidthMeters = 40.32; 
+            const penaltyAreaLengthMeters = 16.5;
+            const goalAreaWidthMeters = 18.32; 
+            const goalAreaLengthMeters = 5.5;
+            const penaltySpotDistMeters = 11;
+            const penaltyArcRadiusMeters = 9.15;
+
+            function drawHalfMarkings(isTopHalf) {
+                const halfSign = isTopHalf ? 1 : -1;
+                const L_origin = isTopHalf ? 0 : textureHeight; 
+                const L_penaltyAreaEdge = L_origin + halfSign * m2px_l(penaltyAreaLengthMeters);
+                const L_goalAreaEdge = L_origin + halfSign * m2px_l(goalAreaLengthMeters);
+                const L_penaltySpot = L_origin + halfSign * m2px_l(penaltySpotDistMeters);
+
+                context.strokeRect(
+                    (textureWidth - m2px_w(penaltyAreaWidthMeters)) / 2,
+                    isTopHalf ? lineWidthPixels / 2 : L_penaltyAreaEdge,
+                    m2px_w(penaltyAreaWidthMeters),
+                    m2px_l(penaltyAreaLengthMeters)
+                );
+
+                context.strokeRect(
+                    (textureWidth - m2px_w(goalAreaWidthMeters)) / 2,
+                     isTopHalf ? lineWidthPixels / 2 : L_goalAreaEdge,
+                    m2px_w(goalAreaWidthMeters),
+                    m2px_l(goalAreaLengthMeters)
+                );
+                
+                context.beginPath();
+                context.arc(textureWidth / 2, L_penaltySpot, m2px_w(0.15), 0, 2 * Math.PI);
+                context.fillStyle = lineColor;
+                context.fill();
+                context.strokeStyle = lineColor; 
+
+                context.beginPath();
+                const arcAngle = Math.acos((penaltyAreaLengthMeters - penaltySpotDistMeters) / penaltyArcRadiusMeters); 
+                if (isTopHalf) {
+                     context.arc(textureWidth / 2, L_penaltySpot, m2px_w(penaltyArcRadiusMeters), Math.PI/2 - arcAngle, Math.PI/2 + arcAngle);
+                } else {
+                     context.arc(textureWidth / 2, L_penaltySpot, m2px_w(penaltyArcRadiusMeters), -Math.PI/2 - arcAngle, -Math.PI/2 + arcAngle, true);
+                }
+                context.stroke();
+            }
+
+            drawHalfMarkings(true); 
+            drawHalfMarkings(false); 
+            
+            const cornerArcRadiusMeters = 1.0;
+            const cornerRadiusPx = m2px_w(cornerArcRadiusMeters);
+            context.beginPath(); 
+            context.arc(lineWidthPixels/2, lineWidthPixels/2, cornerRadiusPx, 0, Math.PI / 2); context.stroke();
+            context.beginPath(); 
+            context.arc(textureWidth - lineWidthPixels/2, lineWidthPixels/2, cornerRadiusPx, Math.PI / 2, Math.PI); context.stroke();
+            context.beginPath(); 
+            context.arc(lineWidthPixels/2, textureHeight - lineWidthPixels/2, cornerRadiusPx, 3 * Math.PI / 2, 2 * Math.PI); context.stroke();
+            context.beginPath(); 
+            context.arc(textureWidth - lineWidthPixels/2, textureHeight - lineWidthPixels/2, cornerRadiusPx, Math.PI, 3 * Math.PI / 2); context.stroke();
+
+            const pitchTexture = new THREE.CanvasTexture(canvas);
+            const pitchMaterial = new THREE.MeshLambertMaterial({ map: pitchTexture });
+            const pitchGeometry = new THREE.PlaneGeometry(PITCH_WIDTH_3D, PITCH_LENGTH_3D);
+            pitchMesh = new THREE.Mesh(pitchGeometry, pitchMaterial);
+            pitchMesh.rotation.x = -Math.PI / 2;
             pitchMesh.receiveShadow = true;
             scene.add(pitchMesh);
-            drawPitchLines3D();
-            console.log("Pitch created.");
         }
 
-        function drawPitchLines3D() {
-            const material = new THREE.LineBasicMaterial({ color: new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--pitch-line-color').trim())}); 
-            const points = [];
-            const y = 0.02; 
+        function createStadium() {
+            // ... (createStadium logic - unchanged)
+            const standHeight = PITCH_WIDTH_3D * 0.3;
+            const standDepth = PITCH_WIDTH_3D * 0.5;
+            const standMaterial1 = new THREE.MeshLambertMaterial({ color: getComputedStyle(document.documentElement).getPropertyValue('--stadium-stand-color-1').trim() });
+            const standMaterial2 = new THREE.MeshLambertMaterial({ color: getComputedStyle(document.documentElement).getPropertyValue('--stadium-stand-color-2').trim() });
 
-            points.push(new THREE.Vector3(-PITCH_WIDTH_3D / 2, y, -PITCH_LENGTH_3D / 2));
-            points.push(new THREE.Vector3(PITCH_WIDTH_3D / 2, y, -PITCH_LENGTH_3D / 2));
-            points.push(new THREE.Vector3(PITCH_WIDTH_3D / 2, y, PITCH_LENGTH_3D / 2));
-            points.push(new THREE.Vector3(-PITCH_WIDTH_3D / 2, y, PITCH_LENGTH_3D / 2));
-            points.push(new THREE.Vector3(-PITCH_WIDTH_3D / 2, y, -PITCH_LENGTH_3D / 2));
-            points.push(new THREE.Vector3(-PITCH_WIDTH_3D / 2, y, 0)); 
-            points.push(new THREE.Vector3(PITCH_WIDTH_3D / 2, y, 0)); 
+            const sideStandGeo = new THREE.BoxGeometry(standDepth, standHeight, PITCH_LENGTH_3D + standDepth * 0.5); 
             
-            let geometry = new THREE.BufferGeometry().setFromPoints(points);
-            scene.add(new THREE.LineSegments(geometry, material));
+            const standLeft = new THREE.Mesh(sideStandGeo, standMaterial1);
+            standLeft.position.set(-(PITCH_WIDTH_3D / 2 + standDepth / 2), standHeight / 2, 0);
+            standLeft.receiveShadow = true;
+            scene.add(standLeft);
 
-            const circleRadius = PITCH_LENGTH_3D * 0.15; 
-            const circleShape = new THREE.Path();
-            circleShape.absarc(0, 0, circleRadius, 0, Math.PI * 2, false);
-            const circlePoints = circleShape.getPoints(64); 
-            geometry = new THREE.BufferGeometry().setFromPoints(circlePoints);
-            const circleLine = new THREE.Line(geometry, material);
-            circleLine.rotation.x = -Math.PI / 2;
-            circleLine.position.y = y; 
-            scene.add(circleLine);
-            console.log("Pitch lines drawn.");
-        }
-        
-        function createGoals3D() {
-            const postMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--goal-post-color').trim()), roughness: 0.3, metalness: 0.5 });
+            const standRight = new THREE.Mesh(sideStandGeo, standMaterial1);
+            standRight.position.set(PITCH_WIDTH_3D / 2 + standDepth / 2, standHeight / 2, 0);
+            standRight.receiveShadow = true;
+            scene.add(standRight);
             
-            function createGoal(zPos) {
-                const goalGroup = new THREE.Group();
-                const postGeo = new THREE.CylinderGeometry(GOAL_POST_RADIUS, GOAL_POST_RADIUS, GOAL_HEIGHT_3D, 12);
-                const leftPost = new THREE.Mesh(postGeo, postMaterial);
-                leftPost.position.set(-GOAL_WIDTH_3D / 2, GOAL_HEIGHT_3D / 2, 0);
-                leftPost.castShadow = true; goalGroup.add(leftPost);
-                const rightPost = new THREE.Mesh(postGeo, postMaterial);
-                rightPost.position.set(GOAL_WIDTH_3D / 2, GOAL_HEIGHT_3D / 2, 0);
-                rightPost.castShadow = true; goalGroup.add(rightPost);
-                const crossbarGeo = new THREE.CylinderGeometry(GOAL_POST_RADIUS, GOAL_POST_RADIUS, GOAL_WIDTH_3D, 12);
-                const crossbar = new THREE.Mesh(crossbarGeo, postMaterial);
-                crossbar.rotation.z = Math.PI / 2;
-                crossbar.position.set(0, GOAL_HEIGHT_3D, 0);
-                crossbar.castShadow = true; goalGroup.add(crossbar);
-                goalGroup.position.z = zPos;
-                scene.add(goalGroup);
-                return goalGroup;
-            }
-            gameMeshes.goal1 = createGoal(-PITCH_LENGTH_3D / 2 - GOAL_DEPTH_3D / 2); 
-            gameMeshes.goal2 = createGoal(PITCH_LENGTH_3D / 2 + GOAL_DEPTH_3D / 2);  
-            console.log("Goals created.");
-        }
-
-        function createPlayerMesh(colorHex, trimColorHex, isGK = false) {
-            const group = new THREE.Group();
-            const bodyMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color(colorHex), roughness: 0.7, metalness: 0.1 });
-            const trimMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color(trimColorHex), roughness: 0.7, metalness: 0.1 });
-
-            const bodyCylinder = new THREE.Mesh(
-                new THREE.CylinderGeometry(PLAYER_CYLINDER_RADIUS, PLAYER_CYLINDER_RADIUS, PLAYER_CYLINDER_HEIGHT, 16), 
-                bodyMaterial
-            );
-            bodyCylinder.position.y = PLAYER_CYLINDER_HEIGHT / 2; 
-            bodyCylinder.castShadow = true; 
-            bodyCylinder.receiveShadow = true;
-            group.add(bodyCylinder);
-
-            const headSphere = new THREE.Mesh(
-                new THREE.SphereGeometry(PLAYER_HEAD_RADIUS, 16, 12), 
-                trimMaterial
-            ); 
-            headSphere.position.y = PLAYER_CYLINDER_HEIGHT + PLAYER_HEAD_RADIUS * 0.7; 
-            headSphere.castShadow = true;
-            group.add(headSphere);
+            const endStandGeo = new THREE.BoxGeometry(PITCH_WIDTH_3D + standDepth * 0.5, standHeight, standDepth);
             
-            if(isGK){ 
-                group.scale.set(1.1, 1.1, 1.1); 
-            }
-            return group;
+            const standTop = new THREE.Mesh(endStandGeo, standMaterial2);
+            standTop.position.set(0, standHeight/2, -(PITCH_LENGTH_3D / 2 + standDepth / 2));
+            standTop.receiveShadow = true;
+            scene.add(standTop);
+
+            const standBottom = new THREE.Mesh(endStandGeo, standMaterial2);
+            standBottom.position.set(0, standHeight/2, PITCH_LENGTH_3D / 2 + standDepth / 2);
+            standBottom.receiveShadow = true;
+            scene.add(standBottom);
         }
 
-        function createPlayerMeshes() {
-            gameMeshes.player1 = createPlayerMesh(getComputedStyle(document.documentElement).getPropertyValue('--player1-jersey').trim(), getComputedStyle(document.documentElement).getPropertyValue('--player1-trim').trim());
-            scene.add(gameMeshes.player1);
-            gameMeshes.player2 = createPlayerMesh(getComputedStyle(document.documentElement).getPropertyValue('--player2-jersey').trim(), getComputedStyle(document.documentElement).getPropertyValue('--player2-trim').trim());
-            scene.add(gameMeshes.player2);
-            gameMeshes.gk1 = createPlayerMesh(getComputedStyle(document.documentElement).getPropertyValue('--gk1-jersey').trim(), getComputedStyle(document.documentElement).getPropertyValue('--player1-trim').trim(), true);
-            scene.add(gameMeshes.gk1);
-            gameMeshes.gk2 = createPlayerMesh(getComputedStyle(document.documentElement).getPropertyValue('--gk2-jersey').trim(), getComputedStyle(document.documentElement).getPropertyValue('--player2-trim').trim(), true);
-            scene.add(gameMeshes.gk2);
-            console.log("Player meshes created.");
-        }
-        
-        function createBallMesh() {
-            const ballMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--ball-color').trim()), roughness: 0.4, metalness: 0.05 });
-            gameMeshes.ball = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS_3D, 20, 20), ballMaterial);
-            gameMeshes.ball.castShadow = true;
-            gameMeshes.ball.receiveShadow = true; 
-            scene.add(gameMeshes.ball);
-            console.log("Ball mesh created.");
-        }
-        
-        function onWindowResizeThree() {
+
+        function onWindowResize() {
+            // ... (onWindowResize logic - unchanged)
             if (camera && renderer) {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
+                console.log("Window resized.");
             }
         }
-        
-        function mapTo3D(logicalX, logicalY) {
-            const x3D = (logicalX / LOGICAL_PITCH_WIDTH) * PITCH_WIDTH_3D;
-            const z3D = -(logicalY / LOGICAL_PITCH_HEIGHT) * PITCH_LENGTH_3D; 
-            return { x: x3D, z: z3D };
+
+        function createPlayerMesh(jerseyColorHex, shortsColorHex, trimColorHex) {
+            // ... (createPlayerMesh logic - unchanged)
+            const group = new THREE.Group();
+            const bodyMaterial = new THREE.MeshLambertMaterial({ color: jerseyColorHex });
+            const bodyGeometry = new THREE.CylinderGeometry(PLAYER_BODY_RADIUS_TOP_3D, PLAYER_BODY_RADIUS_BOTTOM_3D, PLAYER_BODY_HEIGHT_3D, 16);
+            const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            bodyMesh.castShadow = true;
+            bodyMesh.receiveShadow = true; 
+            group.add(bodyMesh);
+
+            const headMaterial = new THREE.MeshLambertMaterial({ color: trimColorHex }); 
+            const headGeometry = new THREE.SphereGeometry(PLAYER_HEAD_RADIUS_3D, 16, 16);
+            const headMesh = new THREE.Mesh(headGeometry, headMaterial);
+            headMesh.position.y = PLAYER_BODY_HEIGHT_3D / 2 + PLAYER_HEAD_RADIUS_3D * 0.8; 
+            headMesh.castShadow = true;
+            headMesh.receiveShadow = true;
+            group.add(headMesh);
+            
+            return group;
+        }
+
+        function createPlayers() {
+            // ... (createPlayers logic - unchanged)
+            const p1Color = getComputedStyle(document.documentElement).getPropertyValue('--player1-jersey').trim();
+            const p1Shorts = getComputedStyle(document.documentElement).getPropertyValue('--player1-shorts').trim();
+            const p1Trim = getComputedStyle(document.documentElement).getPropertyValue('--player1-trim').trim();
+            
+            const p2Color = getComputedStyle(document.documentElement).getPropertyValue('--player2-jersey').trim();
+            const p2Shorts = getComputedStyle(document.documentElement).getPropertyValue('--player2-shorts').trim();
+            const p2Trim = getComputedStyle(document.documentElement).getPropertyValue('--player2-trim').trim();
+
+            const gk1Color = getComputedStyle(document.documentElement).getPropertyValue('--gk1-jersey').trim();
+            const gk2Color = getComputedStyle(document.documentElement).getPropertyValue('--gk2-jersey').trim();
+
+            gameMeshes.player1 = createPlayerMesh(p1Color, p1Shorts, p1Trim);
+            g_player1.mesh = gameMeshes.player1;
+            scene.add(gameMeshes.player1);
+
+            gameMeshes.player2 = createPlayerMesh(p2Color, p2Shorts, p2Trim);
+            g_player2.mesh = gameMeshes.player2;
+            scene.add(gameMeshes.player2);
+
+            gameMeshes.gk1 = createPlayerMesh(gk1Color, p1Shorts, p1Trim); 
+            g_gk1.mesh = gameMeshes.gk1;
+            scene.add(gameMeshes.gk1);
+
+            gameMeshes.gk2 = createPlayerMesh(gk2Color, p2Shorts, p2Trim); 
+            g_gk2.mesh = gameMeshes.gk2;
+            scene.add(gameMeshes.gk2);
+            // console.log("Players created.");
+        }
+
+        function createGoalMesh() {
+            // ... (createGoalMesh logic - unchanged)
+            const group = new THREE.Group();
+            const postMaterial = new THREE.MeshLambertMaterial({ color: getComputedStyle(document.documentElement).getPropertyValue('--goal-post-color').trim() });
+            const postGeo = new THREE.CylinderGeometry(GOAL_POST_RADIUS, GOAL_POST_RADIUS, GOAL_HEIGHT_3D, 12);
+
+            const leftPost = new THREE.Mesh(postGeo, postMaterial);
+            leftPost.position.set(-GOAL_WIDTH_3D / 2, GOAL_HEIGHT_3D / 2, 0);
+            leftPost.castShadow = true;
+            group.add(leftPost);
+
+            const rightPost = new THREE.Mesh(postGeo, postMaterial);
+            rightPost.position.set(GOAL_WIDTH_3D / 2, GOAL_HEIGHT_3D / 2, 0);
+            rightPost.castShadow = true;
+            group.add(rightPost);
+
+            const crossbarGeo = new THREE.CylinderGeometry(GOAL_POST_RADIUS, GOAL_POST_RADIUS, GOAL_WIDTH_3D, 12);
+            const crossbar = new THREE.Mesh(crossbarGeo, postMaterial);
+            crossbar.rotation.z = Math.PI / 2;
+            crossbar.position.set(0, GOAL_HEIGHT_3D, 0);
+            crossbar.castShadow = true;
+            group.add(crossbar);
+
+            const netMaterial = new THREE.MeshBasicMaterial({ 
+                color: getComputedStyle(document.documentElement).getPropertyValue('--goal-net-color').trim(), 
+                side: THREE.DoubleSide, 
+                transparent: true, 
+                opacity: 0.5 
+            });
+            const backNetGeo = new THREE.PlaneGeometry(GOAL_WIDTH_3D, GOAL_HEIGHT_3D);
+            const backNet = new THREE.Mesh(backNetGeo, netMaterial);
+            backNet.position.set(0, GOAL_HEIGHT_3D / 2, -GOAL_DEPTH_3D / 2); 
+            group.add(backNet);
+            
+            return group;
+        }
+
+        function createGoals() {
+            // ... (createGoals logic - unchanged)
+            gameMeshes.goal1 = createGoalMesh(); 
+            gameMeshes.goal1.position.z = PITCH_LENGTH_3D / 2;
+            scene.add(gameMeshes.goal1);
+
+            gameMeshes.goal2 = createGoalMesh(); 
+            gameMeshes.goal2.position.z = -PITCH_LENGTH_3D / 2;
+            gameMeshes.goal2.rotation.y = Math.PI; 
+            scene.add(gameMeshes.goal2);
+            // console.log("Goals created.");
+        }
+
+        function createBallMesh() {
+            // ... (createBallMesh logic - unchanged)
+            const ballMaterial = new THREE.MeshLambertMaterial({ color: getComputedStyle(document.documentElement).getPropertyValue('--ball-color').trim() });
+            const ballGeometry = new THREE.SphereGeometry(BALL_RADIUS_3D, 16, 16);
+            const ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+            ballMesh.castShadow = true;
+            ballMesh.receiveShadow = true; 
+            return ballMesh;
         }
         
-        function resetPositions(resetScores = true) {
-            console.log("Resetting positions. Reset scores:", resetScores);
-            
-            PLAYER_RADIUS_LOGICAL = 30; 
-            GOALKEEPER_RADIUS_LOGICAL = 35; 
-            BALL_RADIUS_LOGICAL = 20; 
-            PLAYER_SPEED = 12; 
-            GOALKEEPER_SPEED = 10; 
-            PLAYER_SPRINT_MULTIPLIER = 1.5; 
-            KICK_STRENGTH = 300; 
-            MAX_BALL_SPEED = 400; 
-            PASS_STRENGTH = KICK_STRENGTH * MIN_KICK_POWER_FACTOR * 1.2; 
-            PLAYER_INERTIA = 0.96; 
-            BALL_INERTIA = 0.98; 
-            DRIBBLING_DISTANCE_THRESHOLD = (PLAYER_RADIUS_LOGICAL + BALL_RADIUS_LOGICAL + 8); 
-            DRIBBLING_OFFSET_DISTANCE = PLAYER_RADIUS_LOGICAL + BALL_RADIUS_LOGICAL * 0.4; 
+        function createBall() {
+            // ... (createBall logic - unchanged)
+            gameMeshes.ball = createBallMesh();
+            g_ball.mesh = gameMeshes.ball;
+            scene.add(gameMeshes.ball);
+            // console.log("Ball created.");
+        }
 
-            const p1Col = getComputedStyle(document.documentElement).getPropertyValue('--player1-jersey').trim();
-            const p2Col = getComputedStyle(document.documentElement).getPropertyValue('--player2-jersey').trim();
-            const gk1Col = getComputedStyle(document.documentElement).getPropertyValue('--gk1-jersey').trim();
-            const gk2Col = getComputedStyle(document.documentElement).getPropertyValue('--gk2-jersey').trim();
-            const ballCol = getComputedStyle(document.documentElement).getPropertyValue('--ball-color').trim();
 
-            let p1ScoreValue = player1 ? player1.score : 0; 
-            let p2ScoreValue = player2 ? player2.score : 0;
-            let p1Name = player1 ? player1.teamName : "Team 1"; 
-            let p2Name = player2 ? player2.teamName : "Team 2";
-            if (resetScores) { p1ScoreValue = 0; p2ScoreValue = 0; p1Name = "Team 1"; p2Name = "Team 2"; }
-
-            const playerCommon = { dx: 0, dy: 0, isSprinting: false, hasBall: false, isKicking: false, kickCharge: 0, actionButtonDown: false, actionButtonStartTime: 0, lastMoveAngle: 0 };
-            
-            player1 = { ...playerCommon, id: 'player1', x: 0, y: LOGICAL_PITCH_HEIGHT / 4, score: p1ScoreValue, color: p1Col, teamName: p1Name, lastMoveAngle: -Math.PI/2 }; 
-            player2 = { ...playerCommon, id: 'player2', x: 0, y: -LOGICAL_PITCH_HEIGHT / 4, score: p2ScoreValue, color: p2Col, teamName: p2Name, lastMoveAngle: Math.PI/2 };  
-            
-            goalkeeper1 = { id: 'gk1', x: 0, y: LOGICAL_PITCH_HEIGHT/2 - GOALKEEPER_RADIUS_LOGICAL * 1.2 , dx:0, dy:0, color: gk1Col}; 
-            goalkeeper2 = { id: 'gk2', x: 0, y: -LOGICAL_PITCH_HEIGHT/2 + GOALKEEPER_RADIUS_LOGICAL * 1.2 , dx:0, dy:0, color: gk2Col}; 
-            
-            ball = { x: 0, y: 0, dx: 0, dy: 0, color: ballCol, controlledBy: null, lastTouchedBy: null };
-            
-            ['player1', 'player2', 'gk1', 'gk2', 'ball'].forEach(key => {
-                let entity;
-                if (key === 'player1') entity = player1;
-                else if (key === 'player2') entity = player2;
-                else if (key === 'gk1') entity = goalkeeper1;
-                else if (key === 'gk2') entity = goalkeeper2;
-                else if (key === 'ball') entity = ball;
-
-                const mesh = gameMeshes[key];
-                if (entity && mesh) {
-                    const pos3D = mapTo3D(entity.x, entity.y);
-                    let yPos3D = (key === 'ball') ? BALL_RADIUS_3D : 0; 
-                    mesh.position.set(pos3D.x, yPos3D, pos3D.z);
-                    mesh.rotation.set(0,0,0); 
-                    if(key.includes('player') || key.includes('gk')) { 
-                        mesh.lookAt(0, mesh.position.y + PLAYER_CYLINDER_HEIGHT / 2 , 0); 
+        function initControls() {
+            console.log("Initializing controls...");
+            // Keyboard controls (remains the same)
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    if (!isGameRunning) startGame();
+                    else if (gamePaused) { 
+                        gamePaused = false; 
+                        hideMessage();
                     }
-                } else {
-                    console.warn(`Entity or Mesh not found for key: ${key} during resetPositions`);
+                }
+                if (!isGameRunning || gamePaused) return;
+                switch(event.key.toLowerCase()){
+                    case 'arrowup': case 'w': keyboardInput.forward = 1; break;
+                    case 'arrowdown': case 's': keyboardInput.back = 1; break;
+                    case 'arrowleft': case 'a': keyboardInput.left = 1; break;
+                    case 'arrowright': case 'd': keyboardInput.right = 1; break;
+                    case ' ': keyboardInput.kick = true; break; 
                 }
             });
-            updateScores(); 
-            console.log("Positions reset.");
-        }
-        
-        // --- Game Logic Update Functions ---
-        function updateFieldPlayer(player, isAI = false, deltaTime) {
-            if (!player || !ball || !gameMeshes[player.id]) return;
-            const dtFactor = deltaTime / (1000/60); 
-            
-            if (!isAI && player === player1 && frameCount % 180 === 0) { 
-                console.log(`[P1 LOGIC DEBUG] Before: x=${player.x.toFixed(1)}, y=${player.y.toFixed(1)}, dx=${player.dx.toFixed(1)}, dy=${player.dy.toFixed(1)}`);
-            }
-
-            let currentBaseSpeed = PLAYER_SPEED * (isAI ? AI_SPEED_MODIFIER : 1);
-            let actualSpeed = player.isSprinting ? currentBaseSpeed * PLAYER_SPRINT_MULTIPLIER : currentBaseSpeed;
-            if (!isAI && player === player1 && frameCount % 180 === 0) console.log(`[P1 LOGIC DEBUG] actualSpeed: ${actualSpeed.toFixed(2)}`);
-
-
-            let targetDx_logical = 0, targetDy_logical = 0;
-
-            if (!isAI) { // Human Player
-                if (player.actionButtonDown) { if (player.hasBall && ball.controlledBy === player) { player.isSprinting = false; if (performance.now() - player.actionButtonStartTime > KICK_TAP_THRESHOLD_MS) player.kickCharge = Math.min(MAX_KICK_CHARGE, player.kickCharge + KICK_CHARGE_RATE); } else player.isSprinting = true; } else player.isSprinting = false; 
-                let moveX = 0, moveY = 0; 
-                if (isTouchDevice && touchState.joystickActive) { 
-                    const relativeX = touchState.joystickCurrentX; 
-                    const relativeY = touchState.joystickCurrentY; 
-                    const magnitude = Math.sqrt(relativeX * relativeX + relativeY * relativeY); 
-                    if (magnitude > JOYSTICK_DEADZONE) { 
-                        const effectiveMagnitude = Math.min(1, magnitude); 
-                        moveX = (relativeX / magnitude) * effectiveMagnitude; 
-                        moveY = -(relativeY / magnitude) * effectiveMagnitude; 
-                    } 
-                     if (frameCount % 180 === 0 && (moveX !== 0 || moveY !== 0)) console.log(`[P1 LOGIC DEBUG] Joystick input: moveX=${moveX.toFixed(2)}, moveY=${moveY.toFixed(2)}`);
-                } else if (!isTouchDevice) { 
-                    if (keys['arrowup'] || keys['w']) moveY = 1;  
-                    if (keys['arrowdown'] || keys['s']) moveY = -1; 
-                    if (keys['arrowleft'] || keys['a']) moveX = -1; 
-                    if (keys['arrowright'] || keys['d']) moveX = 1; 
-                    if (frameCount % 180 === 0 && (moveX !== 0 || moveY !== 0)) console.log(`[P1 LOGIC DEBUG] Keyboard input: moveX=${moveX}, moveY=${moveY}`);
+            document.addEventListener('keyup', (event) => {
+                if (!isGameRunning) return;
+                 switch(event.key.toLowerCase()){
+                    case 'arrowup': case 'w': keyboardInput.forward = 0; break;
+                    case 'arrowdown': case 's': keyboardInput.back = 0; break;
+                    case 'arrowleft': case 'a': keyboardInput.left = 0; break;
+                    case 'arrowright': case 'd': keyboardInput.right = 0; break;
+                    case ' ': keyboardInput.kick = false; break;
                 }
-                if (moveX !== 0 || moveY !== 0) { const normFactor = Math.sqrt(moveX * moveX + moveY * moveY); targetDx_logical = (moveX / normFactor) * actualSpeed; targetDy_logical = (moveY / normFactor) * actualSpeed; }
-                 if (!isAI && player === player1 && frameCount % 180 === 0 && (targetDx_logical !==0 || targetDy_logical !==0) ) console.log(`[P1 LOGIC DEBUG] targetDx_logical: ${targetDx_logical.toFixed(2)}, targetDy_logical: ${targetDy_logical.toFixed(2)}`);
+            });
 
-            } else { // AI Player Logic (Player 2)
-                const P1_DEFENDING_GOAL_Y = LOGICAL_PITCH_HEIGHT / 2;  // Player 1 defends this goal (AI Player 2 attacks this)
-                const P2_DEFENDING_GOAL_Y = -LOGICAL_PITCH_HEIGHT / 2; // Player 2 (AI) defends this goal
-                const AI_SHOOTING_RANGE_Y_MIN = LOGICAL_PITCH_HEIGHT * 0.20; 
-
-                if (player1.hasBall && player1.y > 0) { 
-                    targetDestX_logical = player1.x;
-                    targetDestY_logical = player1.y + (P2_DEFENDING_GOAL_Y - player1.y) * 0.3; 
-                    player.isSprinting = Math.random() < 0.75; 
-                    if (distance(player.x, player.y, player1.x, player1.y) < PLAYER_RADIUS_LOGICAL * 4) {
-                        targetDestX_logical = player1.x;
-                        targetDestY_logical = player1.y;
+            // Touch controls for Kick Button
+            if (kickButton) {
+                kickButton.addEventListener('touchstart', (event) => {
+                    event.preventDefault(); 
+                    if (isGameRunning && !gamePaused) {
+                        keyboardInput.kick = true; 
+                        kickButton.classList.add('active');
                     }
-                } else if (player.hasBall && ball.controlledBy === player) { 
-                    targetDestX_logical = (Math.random() - 0.5) * (GOAL_WIDTH_3D / PITCH_WIDTH_3D * LOGICAL_PITCH_WIDTH * 0.3); 
-                    targetDestY_logical = P1_DEFENDING_GOAL_Y; 
-                    player.isSprinting = true; 
-
-                    if (player.y > AI_SHOOTING_RANGE_Y_MIN && Math.random() < 0.25) { 
-                        player.isKicking = true;
-                        player.kickCharge = Math.random() * (MAX_KICK_CHARGE * 0.6 - MIN_KICK_POWER_FACTOR) + MIN_KICK_POWER_FACTOR; 
+                }, { passive: false }); 
+                kickButton.addEventListener('touchend', (event) => {
+                    event.preventDefault();
+                     if (isGameRunning) { 
+                        keyboardInput.kick = false;
+                        kickButton.classList.remove('active');
                     }
-                } else { 
-                    targetDestX_logical = ball.x;
-                    targetDestY_logical = ball.y;
-                    player.isSprinting = Math.random() < 0.55;
-                    if (Math.random() < 0.1) { 
-                        targetDestX_logical += (Math.random() - 0.5) * PLAYER_RADIUS_LOGICAL * 4;
-                        targetDestY_logical += (Math.random() - 0.5) * PLAYER_RADIUS_LOGICAL * 4;
-                    }
-                }
-                const angleToTarget = Math.atan2(targetDestY_logical - player.y, targetDestX_logical - player.x);
-                targetDx_logical = Math.cos(angleToTarget) * actualSpeed;
-                targetDy_logical = Math.sin(angleToTarget) * actualSpeed;
-            }
-
-            player.dx = player.dx * PLAYER_INERTIA + targetDx_logical * (1 - PLAYER_INERTIA);
-            player.dy = player.dy * PLAYER_INERTIA + targetDy_logical * (1 - PLAYER_INERTIA);
-            
-            if (!isAI && player === player1 && frameCount % 180 === 0) {
-                // console.log(`[P1 LOGIC DEBUG] Before Pos Update: x=${player.x.toFixed(2)}, y=${player.y.toFixed(2)}, dx=${player.dx.toFixed(2)}, dy=${player.dy.toFixed(2)}, dtFactor=${dtFactor.toFixed(3)}`);
-            }
-
-            player.x += player.dx * dtFactor; 
-            player.y += player.dy * dtFactor;
-
-            if (!isAI && player === player1 && frameCount % 180 === 0) {
-                // console.log(`[P1 LOGIC DEBUG] After Pos Update: x=${player.x.toFixed(2)}, y=${player.y.toFixed(2)}`);
-            }
-
-
-            player.x = Math.max(-LOGICAL_PITCH_WIDTH/2 + PLAYER_RADIUS_LOGICAL, Math.min(LOGICAL_PITCH_WIDTH/2 - PLAYER_RADIUS_LOGICAL, player.x));
-            player.y = Math.max(-LOGICAL_PITCH_HEIGHT/2 + PLAYER_RADIUS_LOGICAL, Math.min(LOGICAL_PITCH_HEIGHT/2 - PLAYER_RADIUS_LOGICAL, player.y));
-
-            const playerMesh = gameMeshes[player.id];
-            const pos3D = mapTo3D(player.x, player.y);
-            
-            // if (!isAI && player === player1 && frameCount % 180 === 0) {
-            //     console.log(`[P1 LOGIC DEBUG] Mapped 3D: x=${pos3D.x.toFixed(2)}, z=${pos3D.z.toFixed(2)}. Current Mesh Pos: x=${playerMesh.position.x.toFixed(2)}, z=${playerMesh.position.z.toFixed(2)}`);
-            // }
-            playerMesh.position.set(pos3D.x, 0, pos3D.z); 
-            // if (!isAI && player === player1 && frameCount % 180 === 0) {
-            //     console.log(`[P1 LOGIC DEBUG] Mesh Pos After Set: x=${playerMesh.position.x.toFixed(2)}, z=${playerMesh.position.z.toFixed(2)}`);
-            // }
-            
-            if (targetDx_logical !== 0 || targetDy_logical !== 0) {
-                const lookAtTargetPos = mapTo3D(player.x + targetDx_logical, player.y + targetDy_logical);
-                playerMesh.lookAt(lookAtTargetPos.x, playerMesh.position.y, lookAtTargetPos.z); 
-                player.lastMoveAngle = Math.atan2(targetDy_logical, targetDx_logical); 
-            } else if (player.lastMoveAngle !== undefined) { 
-                 const lookAtTargetPos = mapTo3D(player.x + Math.cos(player.lastMoveAngle), player.y + Math.sin(player.lastMoveAngle));
-                 playerMesh.lookAt(lookAtTargetPos.x, playerMesh.position.y, lookAtTargetPos.z);
-            }
-            
-            if (player.hasBall && ball.controlledBy === player) { 
-                ball.x = player.x + Math.cos(player.lastMoveAngle) * DRIBBLING_OFFSET_DISTANCE; 
-                ball.y = player.y + Math.sin(player.lastMoveAngle) * DRIBBLING_OFFSET_DISTANCE; 
-                ball.dx = player.dx * 0.8; ball.dy = player.dy * 0.8; 
-            }
-            if (player.isKicking && player.hasBall && ball.controlledBy === player) { 
-                if (!isAI) console.log("[P1 KICK ACTION DEBUG] Conditions met. isKicking, hasBall, controlledBySelf are all true.");
-                let kickAngle_logical = player.lastMoveAngle; 
-                if (targetDx_logical === 0 && targetDy_logical === 0 || isAI) { 
-                     const goalY = (player === player1) ? -LOGICAL_PITCH_HEIGHT / 2 : LOGICAL_PITCH_HEIGHT / 2;
-                     kickAngle_logical = Math.atan2(goalY - player.y, 0 - player.x);
-                     if(isAI) kickAngle_logical += (Math.random() - 0.5) * 0.4; 
-                     if (!isAI) console.log(`[P1 KICK ACTION DEBUG] Stationary/AI kick. Angle: ${kickAngle_logical.toFixed(2)}`);
-                }
-                let kickPower_logical = PASS_STRENGTH + (KICK_STRENGTH - PASS_STRENGTH) * player.kickCharge;
-                if (!isAI) console.log(`[P1 KICK ACTION DEBUG] Kick Power: ${kickPower_logical.toFixed(2)}, Charge: ${player.kickCharge.toFixed(2)}`);
-
-                ball.dx = Math.cos(kickAngle_logical) * kickPower_logical;
-                ball.dy = Math.sin(kickAngle_logical) * kickPower_logical;
-                player.hasBall = false; ball.controlledBy = null; ball.lastTouchedBy = player; 
-                if (!isAI) console.log("[P1 KICK ACTION DEBUG] Player 1 lost possession after kick.");
-                player.isKicking = false; player.kickCharge = 0; 
-                playSoundEffect('kickHard');
-            }
-            if (!player.hasBall && ball.controlledBy === null) { 
-                const distToBall = distance(player.x, player.y, ball.x, ball.y); 
-                // if (!isAI && frameCount % 60 === 0) console.log(`[P1 POSSESSION CHECK DEBUG] Dist to ball: ${distToBall.toFixed(1)}, Threshold: ${DRIBBLING_DISTANCE_THRESHOLD}`);
-                if (distToBall < DRIBBLING_DISTANCE_THRESHOLD) { 
-                    player.hasBall = true; 
-                    ball.controlledBy = player; 
-                    if (!isAI) console.log("[P1 POSSESSION GAINED DEBUG]");
-                }
-            }
-        }
-
-        function updateGoalkeeper(gk, isPlayer1GK, deltaTime) { /* ... Placeholder ... */ }
-        function updateBall(deltaTime) { 
-            if (!ball || !gameMeshes.ball) return;
-            const dtFactor = deltaTime / (1000/60);
-
-            if (ball.controlledBy === null) { 
-                ball.x += ball.dx * dtFactor;
-                ball.y += ball.dy * dtFactor;
-                ball.dx *= Math.pow(BALL_INERTIA, dtFactor); 
-                ball.dy *= Math.pow(BALL_INERTIA, dtFactor);
-            }
-            const goalMouthWidthLogical = GOAL_WIDTH_3D / PITCH_WIDTH_3D * LOGICAL_PITCH_WIDTH;
-            // P2's defending goal (AI defends this, negative logical Y, P1 attacks this)
-            if (ball.y < -LOGICAL_PITCH_HEIGHT / 2 + BALL_RADIUS_LOGICAL) { 
-                if (Math.abs(ball.x) < goalMouthWidthLogical / 2) {
-                    if (ball.y < -LOGICAL_PITCH_HEIGHT / 2) goalScored(player1); 
-                } else { ball.y = -LOGICAL_PITCH_HEIGHT / 2 + BALL_RADIUS_LOGICAL; ball.dy *= -0.75; playSoundEffect('ballBounce');}
-            }
-            // P1's defending goal (Human defends this, positive logical Y, P2 attacks this)
-            if (ball.y > LOGICAL_PITCH_HEIGHT / 2 - BALL_RADIUS_LOGICAL) { 
-                if (Math.abs(ball.x) < goalMouthWidthLogical / 2) {
-                    if (ball.y > LOGICAL_PITCH_HEIGHT / 2) goalScored(player2); 
-                } else { ball.y = LOGICAL_PITCH_HEIGHT / 2 - BALL_RADIUS_LOGICAL; ball.dy *= -0.75; playSoundEffect('ballBounce');}
-            }
-            if (Math.abs(ball.x) > LOGICAL_PITCH_WIDTH / 2 - BALL_RADIUS_LOGICAL) {
-                ball.x = Math.sign(ball.x) * (LOGICAL_PITCH_WIDTH / 2 - BALL_RADIUS_LOGICAL);
-                ball.dx *= -0.75; playSoundEffect('ballBounce');
-            }
-
-            const pos3D = mapTo3D(ball.x, ball.y);
-            gameMeshes.ball.position.set(pos3D.x, BALL_RADIUS_3D, pos3D.z); 
-            const speed = Math.sqrt(ball.dx**2 + ball.dy**2);
-            if (speed > 10) { 
-                gameMeshes.ball.rotation.x += ball.dy * 0.0002 * speed * dtFactor; 
-                gameMeshes.ball.rotation.z -= ball.dx * 0.0002 * speed * dtFactor;
-            }
-        }
-        function handleCollisions() { 
-            if (!player1 || !player2 || !ball) return;
-
-            const pDist = distance(player1.x, player1.y, player2.x, player2.y);
-            const collisionThreshold = PLAYER_RADIUS_LOGICAL * 1.8; 
-
-            if (pDist < collisionThreshold) {
-                // console.log("Player-Player Collision!");
-                const angle = Math.atan2(player2.y - player1.y, player2.x - player1.x);
-                const overlap = collisionThreshold - pDist;
-                const moveBack = overlap / 2 * 0.7; 
-                
-                player1.x -= Math.cos(angle) * moveBack;
-                player1.y -= Math.sin(angle) * moveBack;
-                player2.x += Math.cos(angle) * moveBack;
-                player2.y += Math.sin(angle) * moveBack;
-
-                const tackleChance = 0.4; 
-                if (player1.hasBall && ball.controlledBy === player1 && (player2.isSprinting || Math.random() < 0.3) ) {
-                    if (Math.random() < tackleChance) {
-                        console.log("[COLLISION DEBUG] P1 loses ball to P2");
-                        player1.hasBall = false; ball.controlledBy = null;
-                        ball.dx += (Math.random() - 0.5) * KICK_STRENGTH * 0.1; 
-                        ball.dy += (Math.random() - 0.5) * KICK_STRENGTH * 0.1;
-                    }
-                } else if (player2.hasBall && ball.controlledBy === player2 && (player1.isSprinting || Math.random() < 0.3) ) {
-                    if (Math.random() < tackleChance) {
-                        console.log("[COLLISION DEBUG] P2 loses ball to P1");
-                        player2.hasBall = false; ball.controlledBy = null;
-                        ball.dx += (Math.random() - 0.5) * KICK_STRENGTH * 0.1;
-                        ball.dy += (Math.random() - 0.5) * KICK_STRENGTH * 0.1;
-                    }
-                }
-            }
-        }
-        function goalScored(scoringPlayer) { 
-            if (gameState !== 'PLAYING' || !scoringPlayer) return;
-            gameState = 'GOAL_SCORED'; 
-            scoringPlayer.score++; 
-            updateScores();
-            playSoundEffect('goalCheer'); 
-            showMessage("GOAL!!!", 2200, true); 
-            console.log(`${scoringPlayer.teamName || scoringPlayer.id} SCORED! Score: ${player1.score} - ${player2.score}`);
-        }
-        
-        function startGameTimer() { timeLeft = GAME_DURATION_SECONDS; updateTimerDisplay(); if (gameTimerInterval) clearInterval(gameTimerInterval); gameTimerInterval = setInterval(() => { if (gameState === 'PLAYING') { timeLeft--; updateTimerDisplay(); if (timeLeft <= 0) endGame(); } }, 1000); }
-        function startGame() { if (gameState === 'PLAYING') return; resetGeminiUsage(); initAudio().then(() => { messageDisplay.classList.remove('show', 'goal-celebration'); messageDisplay.style.display = 'none'; banterDisplay.style.display = 'none'; resetPositions(true); startGameTimer(); gameState = 'READY'; playSoundEffect('whistleLong'); showMessage("KICK OFF!", 1200); setTimeout(() => { if(gameState === 'READY') gameState = 'PLAYING'; }, 1200); }).catch(err => console.error("Audio start error:", err)); }
-        function endGame(winner = null) { gameState = 'GAME_OVER'; clearInterval(gameTimerInterval); playSoundEffect('whistleLong'); let msg = "TIME UP! "; let p1N = (player1 && player1.teamName) ? player1.teamName : "Team 1"; let p2N = (player2 && player2.teamName) ? player2.teamName : "Team 2"; if (winner) msg = `${winner} WINS!`; else { if (player1 && player2 && player1.score > player2.score) msg += `${p1N} WINS!`; else if (player1 && player2 && player2.score > player1.score) msg += `${p2N} WINS!`; else msg += "IT'S A DRAW!"; } msg += isTouchDevice ? "\nTap KICK for New Game" : "\nENTER for New Game"; showMessage(msg, -1); }
-        
-        function setupTouchControls() {
-            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-                isTouchDevice = true;
-                touchControlsContainer.style.display = 'flex';
-                if(controlsInfoDisplay) controlsInfoDisplay.style.display = 'none';
-
-                const joystick = document.getElementById('joystickArea');
-                const nub = document.getElementById('joystickNub');
-                const actionBtn = document.getElementById('kickButton');
-
-                let joystickTouchId = null;
-                let joystickCenter = { x: 0, y: 0 }; 
-                let joystickRadius = 0;
-
-                joystick.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    if (joystickTouchId === null) {
-                        const touch = e.changedTouches[0];
-                        joystickTouchId = touch.identifier;
-                        const rect = joystick.getBoundingClientRect();
-                        joystickCenter.x = rect.left + rect.width / 2;
-                        joystickCenter.y = rect.top + rect.height / 2;
-                        joystickRadius = joystick.offsetWidth / 2; 
-                        touchState.joystickActive = true;
-                        updateJoystickVisuals(touch.clientX, touch.clientY, nub, joystickCenter, joystickRadius);
-                    }
-                }, { passive: false });
-
-                document.addEventListener('touchmove', (e) => {
-                    if (joystickTouchId !== null) {
-                        for (let i = 0; i < e.changedTouches.length; i++) {
-                            const touch = e.changedTouches[i];
-                            if (touch.identifier === joystickTouchId) {
-                                e.preventDefault();
-                                updateJoystickVisuals(touch.clientX, touch.clientY, nub, joystickCenter, joystickRadius);
-                                break;
-                            }
-                        }
-                    }
-                }, { passive: false });
-
-                const endJoystick = (e) => {
-                     for (let i = 0; i < e.changedTouches.length; i++) {
-                        if (e.changedTouches[i].identifier === joystickTouchId) {
-                            joystickTouchId = null;
-                            touchState.joystickActive = false;
-                            touchState.joystickCurrentX = 0; 
-                            touchState.joystickCurrentY = 0;
-                            nub.style.left = '50%'; 
-                            nub.style.top = '50%';
-                            nub.style.transform = 'translate(-50%, -50%)'; 
-                            break;
-                        }
-                    }
-                };
-                document.addEventListener('touchend', endJoystick);
-                document.addEventListener('touchcancel', endJoystick);
-
-                function updateJoystickVisuals(clientX, clientY, nubEl, center, radius) {
-                    let deltaX = clientX - center.x;
-                    let deltaY = clientY - center.y;
-                    const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                    const maxDistVisual = radius - nubEl.offsetWidth / 2; 
-
-                    if (dist > maxDistVisual) {
-                        deltaX = (deltaX / dist) * maxDistVisual;
-                        deltaY = (deltaY / dist) * maxDistVisual;
-                    }
-                    nubEl.style.left = `calc(50% + ${deltaX}px)`;
-                    nubEl.style.top = `calc(50% + ${deltaY}px)`;
-                    
-                    touchState.joystickCurrentX = Math.max(-1, Math.min(1, (clientX - center.x) / radius));
-                    touchState.joystickCurrentY = Math.max(-1, Math.min(1, (clientY - center.y) / radius));
-                    // if (frameCount % 60 === 0) console.log(`[DEBUG] Joystick Logic: X=${touchState.joystickCurrentX.toFixed(2)}, Y=${touchState.joystickCurrentY.toFixed(2)}`);
-                }
-
-                actionBtn.addEventListener('touchstart', (e) => {
-                    e.preventDefault(); 
-                    console.log("[DEBUG] Kick Button Touch Start");
-                    if (player1) { player1.actionButtonDown = true; player1.actionButtonStartTime = performance.now(); player1.kickCharge = 0; }
-                    if (gameState === 'GAME_OVER' || gameState === 'INITIAL') startGame();
-                }, { passive: false });
-                actionBtn.addEventListener('touchend', (e) => { 
-                    e.preventDefault(); 
-                    if (player1) { 
-                        console.log(`[DEBUG] Kick Button Touch End. Has Ball: ${player1.hasBall}, Action Down: ${player1.actionButtonDown}`);
-                        if (player1.actionButtonDown && player1.hasBall) {
-                            player1.isKicking = true; 
-                            console.log("[DEBUG] player1.isKicking SET TO TRUE by touch");
-                        }
-                        player1.actionButtonDown = false; 
-                    }
-                }, { passive: false });
+                });
             } else {
-                if (touchControlsContainer) touchControlsContainer.style.display = 'none';
+                console.error("Kick button not found!");
             }
-        }
-        
-        let cameraTarget = new THREE.Vector3(); 
-
-        function gameLoop() {
-            const now = performance.now();
-            const deltaTime = Math.min(32, now - (lastTime || now)); 
-            lastTime = now;
             
-            if (frameCount % 120 === 0) { 
-                // console.log(`gameLoop - deltaTime: ${deltaTime.toFixed(2)}`);
+            // Touch controls for Joystick
+            if (joystickArea && joystickNub) {
+                console.log("Attaching joystick event listeners to joystickArea.");
+                joystickArea.addEventListener('touchstart', (event) => {
+                    console.log("Joystick touchstart triggered on joystickArea.");
+                    event.preventDefault();
+                    if (isGameRunning && !gamePaused) {
+                        isJoystickActive = true;
+                        const touch = event.changedTouches[0];
+                        console.log(`Touchstart - ClientX: ${touch.clientX}, ClientY: ${touch.clientY}`);
+                        const currentBaseRect = joystickArea.getBoundingClientRect(); 
+                        updateJoystickNub(touch.clientX, touch.clientY, currentBaseRect);
+                    }
+                }, { passive: false });
+
+                // It's often better to put move and end on the document to handle dragging outside
+                document.addEventListener('touchmove', (event) => {
+                    if (!isJoystickActive || !isGameRunning || gamePaused) return;
+                    // event.preventDefault(); // Be careful with preventDefault on document for move
+                    const touch = event.changedTouches[0]; 
+                    // console.log(`Touchmove - ClientX: ${touch.clientX}, ClientY: ${touch.clientY}`); // Spammy
+                    const currentBaseRect = joystickArea.getBoundingClientRect();
+                    updateJoystickNub(touch.clientX, touch.clientY, currentBaseRect);
+                }, { passive: false }); // passive:false if you intend to prevent scroll during joystick use
+
+                document.addEventListener('touchend', (event) => {
+                    if (!isJoystickActive) return; // Only act if our joystick was active
+                    console.log("Joystick touchend triggered on document.");
+                    // event.preventDefault(); // Usually not needed for touchend on document unless specific case
+                    isJoystickActive = false;
+                    joystickNub.style.transform = `translate(-50%, -50%)`; 
+                    joystickInput = { x: 0, y: 0 };
+                    console.log("Joystick deactivated. Input:", joystickInput);
+                });
+            } else {
+                console.error("JoystickArea or JoystickNub not found for event listener attachment!");
             }
 
-            if (gameState === 'PLAYING' || gameState === 'GOAL_SCORED' || gameState === 'READY') {
-                if (player1 && player2 && ball && goalkeeper1 && goalkeeper2) { 
-                    updateFieldPlayer(player1, false, deltaTime); 
-                    updateFieldPlayer(player2, true, deltaTime);
-                    // updateGoalkeeper(goalkeeper1, true, deltaTime); 
-                    // updateGoalkeeper(goalkeeper2, false, deltaTime); 
-                    updateBall(deltaTime); 
-                    handleCollisions(); 
-                }
-            }
-
-            if (debugCube) {
-                debugCube.rotation.x += 0.01;
-                debugCube.rotation.y += 0.01;
-            }
-
-            if (camera && gameMeshes.ball && gameMeshes.ball.position) {
-                const ballPos3D = gameMeshes.ball.position;
-                cameraTarget.lerp(ballPos3D, 0.05); 
-
-                const camDist = PITCH_LENGTH_3D * 0.4 + 20; 
-                const camHeight = PITCH_LENGTH_3D * 0.5;   
-
-                camera.position.x = cameraTarget.x;
-                camera.position.y = camHeight;
-                camera.position.z = cameraTarget.z + camDist; 
-                
-                camera.lookAt(cameraTarget.x, 0, cameraTarget.z); 
-            }
-
-
-            if (renderer && scene && camera) {
-                renderer.render(scene, camera);
-            }
-            frameCount++;
-            requestAnimationFrame(gameLoop);
-        }
-
-        window.addEventListener('keydown', (e) => { 
-            keys[e.key.toLowerCase()] = true; 
-            // if (frameCount % 60 === 0) console.log("[DEBUG] Keydown:", e.key, keys);
-            if (e.key === 'Enter' && (gameState === 'GAME_OVER' || gameState === 'INITIAL')) startGame(); 
-            if ((e.key === ' ' || e.key.toLowerCase() === 'k') && player1 && !player1.actionButtonDown) { 
-                console.log("[DEBUG] Kick Key Down");
-                player1.actionButtonDown = true; player1.actionButtonStartTime = performance.now(); player1.kickCharge = 0; 
-            } 
-        });
-        window.addEventListener('keyup', (e) => { 
-            keys[e.key.toLowerCase()] = false; 
-            // if (frameCount % 60 === 0) console.log("[DEBUG] Keyup:", e.key, keys);
-            if ((e.key === ' ' || e.key.toLowerCase() === 'k') && player1) { 
-                console.log(`[DEBUG] Kick Key Up. Has Ball: ${player1.hasBall}, Action Down: ${player1.actionButtonDown}`);
-                if (player1.actionButtonDown && player1.hasBall) { 
-                    player1.isKicking = true; 
-                    console.log("[DEBUG] player1.isKicking SET TO TRUE by keyup");
-                } 
-                player1.actionButtonDown = false; 
-            } 
-        });
-
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log("DOMContentLoaded: Initializing...");
-            initThreeJSScene(); 
-            resetPositions(true); 
-            setupTouchControls(); 
-            
-            showMessage(isTouchDevice ? "Pixel Pitch Pro 3D\nTap KICK to Start" : "Pixel Pitch Pro 3D\nPress Enter to Start", -1);
-            
-            lastTime = performance.now(); 
-
-            const muteBtn = document.getElementById('muteButton'); if (muteBtn) muteBtn.addEventListener('click', () => {isMuted = !isMuted; muteBtn.textContent = isMuted ? "Unmute" : "Mute"; if (!isMuted) initAudio().catch(err => console.error("Audio unmute error:", err));});
-            if (!isMuted) initAudio().catch(err => console.warn("Initial audio start failed:", err));
+            if (muteButton) muteButton.addEventListener('click', toggleMute);
             if (teamNameButton) teamNameButton.addEventListener('click', generateTeamNames);
             if (banterButton) banterButton.addEventListener('click', getGameBanter);
-            console.log("DOMContentLoaded setup complete.");
-        });
+            console.log("Controls initialized.");
+        }
+
+        function updateJoystickNub(clientX, clientY, baseRect) {
+            if (!joystickNub || !baseRect) {
+                console.error("updateJoystickNub: joystickNub or baseRect is null/undefined.");
+                return;
+            }
+            // console.log(`updateJoystickNub - clientX: ${clientX}, clientY: ${clientY}, baseLeft: ${baseRect.left}, baseTop: ${baseRect.top}, baseWidth: ${baseRect.width}`);
+
+            const nubRadius = joystickNub.offsetWidth / 2;
+            const baseRadius = baseRect.width / 2; 
+
+            const actualBaseCenterX = baseRect.left + baseRadius;
+            const actualBaseCenterY = baseRect.top + baseRadius;
+
+            let deltaX = clientX - actualBaseCenterX;
+            let deltaY = clientY - actualBaseCenterY;
+
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const maxDistance = baseRadius - nubRadius; 
+
+            if (distance > maxDistance) {
+                deltaX = (deltaX / distance) * maxDistance;
+                deltaY = (deltaY / distance) * maxDistance;
+            }
+            
+            joystickNub.style.transform = `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`;
+            
+            joystickInput.x = maxDistance === 0 ? 0 : deltaX / maxDistance; // Avoid division by zero
+            joystickInput.y = maxDistance === 0 ? 0 : deltaY / maxDistance; 
+
+            if (Math.abs(joystickInput.x) < 0.20) joystickInput.x = 0; // Increased deadzone slightly
+            if (Math.abs(joystickInput.y) < 0.20) joystickInput.y = 0;
+            // console.log(`Joystick Input: x=${joystickInput.x.toFixed(2)}, y=${joystickInput.y.toFixed(2)}`);
+        }
+
+
+        function handleKickOrSprint() {
+            // ... (handleKickOrSprint logic - unchanged)
+            if (!g_player1.mesh || !gameMeshes.ball) return;
+
+            const player = g_player1;
+            const playerPos = player.mesh.position;
+            const ballPos = gameMeshes.ball.position;
+            const distanceToBall = playerPos.distanceTo(ballPos);
+            const kickRange = (PLAYER_BODY_RADIUS_BOTTOM_3D + BALL_RADIUS_3D) * KICK_RANGE_MULTIPLIER;
+
+            if (distanceToBall < kickRange && player.hasBall) { 
+                // console.log("Kick action!");
+                playSoundEffect('kickHard');
+                player.hasBall = false;
+                ballPhysics.controlledBy = null;
+
+                const playerDirection = new THREE.Vector3();
+                player.mesh.getWorldDirection(playerDirection); 
+                
+                const kickStrength = 20 * METER_TO_3D_UNIT; 
+                ballPhysics.velocity.copy(playerDirection).multiplyScalar(kickStrength);
+                ballPhysics.velocity.y = 2.5 * METER_TO_3D_UNIT; 
+
+            } else if (!player.isSprinting) { 
+                // console.log("Sprint action!");
+                player.isSprinting = true;
+                player.currentSpeed = PLAYER_SPRINT_SPEED;
+                player.sprintTimer = SPRINT_DURATION;
+            }
+        }
+
+
+        function resetGeminiUsage() { 
+            // ... (resetGeminiUsage logic - unchanged)
+            apiCallCount = 0; 
+            geminiFeaturesDisabled = false; 
+            if(teamNameButton) teamNameButton.disabled = false; 
+            if(banterButton) banterButton.disabled = false;
+        }
+
+        async function callGemini(prompt, isJson = false) {
+            // ... (callGemini logic - unchanged)
+            if (geminiFeaturesDisabled) return "Gemini features temporarily disabled.";
+            if (apiCallCount >= MAX_API_CALLS_PER_GAME) {
+                geminiFeaturesDisabled = true;
+                if(teamNameButton) teamNameButton.disabled = true;
+                if(banterButton) banterButton.disabled = true;
+                showMessage("Max AI features used for this game.", true, 2000);
+                return "Max API calls reached. Try again next game.";
+            }
+            apiCallCount++;
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+            const payload = { contents: chatHistory };
+            if (isJson) { /* ... schema ... */ }
+            try {
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) { const errorBody = await response.text(); showMessage(`AI Error: ${response.statusText}`, true, 2000); return `Error: ${response.statusText}`; }
+                const result = await response.json();
+                if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts) return result.candidates[0].content.parts[0].text;
+                showMessage("AI gave an unusual response.", true, 2000); return "Received an unexpected response from the AI.";
+            } catch (error) { showMessage("Could not connect to AI.", true, 2000); return "Error connecting to the AI service."; }
+        }
+
+        async function generateTeamNames() { /* ... unchanged ... */ 
+            if (!teamNameButton || !g_player1 || !g_player2) return;
+            teamNameButton.disabled = true; teamNameButton.textContent = "Naming...";
+            const prompt = "Generate two distinct, creative, and fun soccer team names. Format them as: Team Name 1, Team Name 2.";
+            const responseText = await callGemini(prompt);
+            if (responseText && typeof responseText === 'string' && !responseText.startsWith("Error") && !responseText.startsWith("Max API calls")) {
+                const names = responseText.split(',').map(name => name.trim());
+                if (names.length >= 2) { g_player1.teamName = names[0] || "Team Alpha"; g_player2.teamName = names[1] || "Team Beta";
+                    if(banterDisplay) { banterDisplay.textContent = `Today's match: ${g_player1.teamName} vs ${g_player2.teamName}!`; banterDisplay.style.display = 'block'; setTimeout(() => { if(banterDisplay) banterDisplay.style.display = 'none'; }, 3000); }
+                } else { g_player1.teamName = "The Comets"; g_player2.teamName = "The Dynamos";
+                     if(banterDisplay) { banterDisplay.textContent = "AI couldn't decide on names, using defaults!"; banterDisplay.style.display = 'block'; setTimeout(() => { if(banterDisplay) banterDisplay.style.display = 'none'; }, 3000); }
+                }
+            } else { if(banterDisplay && typeof responseText === 'string') { banterDisplay.textContent = responseText; banterDisplay.style.display = 'block'; setTimeout(() => { if(banterDisplay) banterDisplay.style.display = 'none'; }, 3000); } }
+            updateScores(); teamNameButton.disabled = geminiFeaturesDisabled; teamNameButton.textContent = "✨ Names";
+        }
+        async function getGameBanter() { /* ... unchanged ... */
+            if (!banterButton || !banterDisplay) return;
+            banterButton.disabled = true; banterDisplay.textContent = "Thinking of some banter..."; banterDisplay.style.display = 'block';
+            let scoreInfo = ""; if (g_player1 && g_player2) { scoreInfo = `The score is ${g_player1.teamName || 'Team 1'} ${g_player1.score} - ${g_player2.teamName || 'Team 2'} ${g_player2.score}.`; }
+            const timeInfo = `Time remaining: ${Math.ceil(timeLeft)} seconds.`;
+            const prompt = `Generate a short, witty, or insightful piece of soccer commentary or banter. ${scoreInfo} ${timeInfo} Keep it under 150 characters.`;
+            const banterText = await callGemini(prompt); 
+            if(banterDisplay) banterDisplay.textContent = banterText;
+            setTimeout(() => { if (banterDisplay && banterDisplay.textContent === banterText) { } }, 5000);
+            if(banterButton) banterButton.disabled = geminiFeaturesDisabled;
+         }
+        async function initAudio() { /* ... unchanged ... */
+            if (audioInitialized || (Tone && Tone.context && Tone.context.state === 'running')) { audioInitialized = true; return; }
+            try { await Tone.start();
+                soundEffects.kickSoft = new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 }, volume: -12 }).toDestination();
+                soundEffects.kickHard = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.05 }, volume: -10 }).toDestination();
+                soundEffects.ballBounce = new Tone.MembraneSynth({ pitchDecay: 0.03, octaves: 2, envelope: { attack: 0.005, decay: 0.15, sustain: 0 }, volume: -15 }).toDestination();
+                soundEffects.whistleShort = new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.1 }, volume: -15 }).toDestination();
+                soundEffects.whistleLong = new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.01, decay: 0.8, sustain: 0.2, release: 0.2 }, volume: -15 }).toDestination();
+                soundEffects.goalCheer = new Tone.NoiseSynth({ noise: {type: "pink"}, envelope: {attack: 0.1, decay:1.5, sustain: 0.5, release:0.5}, volume: -18}).toDestination();
+                audioInitialized = true;
+            } catch (e) { console.error("Could not start audio context or create effects:", e); audioInitialized = false; if(muteButton) muteButton.textContent = "Audio Err"; isMuted = true; }
+        }
+        function playSoundEffect(soundName, options = {}) { /* ... unchanged ... */
+            if (isMuted || !audioInitialized) return;
+            const effect = soundEffects[soundName]; if (!effect || (typeof effect.disposed !== 'undefined' && effect.disposed)) return;
+            const now = Date.now(); if (soundDebounceTimes[soundName] && (now - soundDebounceTimes[soundName] < DEBOUNCE_THRESHOLD_MS)) return;
+            soundDebounceTimes[soundName] = now;
+            try { if (typeof effect.triggerAttackRelease === 'function') {
+                    const duration = options.duration || (effect.envelope ? effect.envelope.decay + effect.envelope.release : 0.2);
+                    const note = options.note || (effect.oscillator ? effect.oscillator.frequency.value : 'C4'); 
+                    let velocity = options.velocity || 0.8;
+                    if (soundName === 'ballBounce') velocity = Math.min(0.8, Math.max(0.1, Math.abs(ballPhysics.velocity.y / (METER_TO_3D_UNIT * 3) )));
+                    if (effect instanceof Tone.NoiseSynth || effect instanceof Tone.MembraneSynth) effect.triggerAttackRelease(duration, Tone.now(), velocity);
+                    else if (effect instanceof Tone.Synth) effect.triggerAttackRelease(note, duration, Tone.now(), velocity);
+                }
+            } catch (e) {}
+        }
+        function toggleMute() { /* ... unchanged ... */ isMuted = !isMuted; if (muteButton) muteButton.textContent = isMuted ? "Unmute" : "Mute"; if (!isMuted && !audioInitialized) initAudio(); }
+        function updateScores() { /* ... unchanged ... */ if (player1ScoreDisplay) player1ScoreDisplay.textContent = `${g_player1.teamName || 'P1'}: ${g_player1.score}`; if (player2ScoreDisplay) player2ScoreDisplay.textContent = `${g_player2.teamName || 'P2'}: ${g_player2.score}`; }
+        function updateTimerDisplay() { /* ... unchanged ... */ if (timerDisplay) timerDisplay.textContent = `Time: ${Math.max(0, Math.ceil(timeLeft))}`; }
+        function showMessage(message, isError = false, duration = 0) { /* ... unchanged ... */
+            if (!messageDisplay) return; messageDisplay.textContent = message; messageDisplay.classList.remove('goal-celebration', 'error'); if (isError) messageDisplay.classList.add('error'); 
+            messageDisplay.classList.add('show'); messageDisplay.style.display = 'block'; 
+            if (duration > 0) { setTimeout(() => { hideMessage(); }, duration); }
+        }
+        function hideMessage() { /* ... unchanged ... */
+            if (!messageDisplay) return; messageDisplay.classList.remove('show'); messageDisplay.classList.add('hide');
+            const handleTransitionEnd = () => { if (!messageDisplay.classList.contains('show')) messageDisplay.style.display = 'none'; messageDisplay.removeEventListener('transitionend', handleTransitionEnd); };
+            messageDisplay.addEventListener('transitionend', handleTransitionEnd);
+            setTimeout(() => { if (!messageDisplay.classList.contains('show')) messageDisplay.style.display = 'none'; }, 250); 
+        }
+        function goalScored(scoringTeam) { /* ... unchanged ... */
+            playSoundEffect('goalCheer'); playSoundEffect('whistleLong'); 
+            let goalMessage = "GOAL!!!";
+            if (scoringTeam === 1) { g_player1.score++; goalMessage = `${g_player1.teamName || 'Player 1'} scores! GOAL!`; } 
+            else if (scoringTeam === 2) { g_player2.score++; goalMessage = `${g_player2.teamName || 'Player 2'} scores! GOAL!`; }
+            updateScores();
+            if (messageDisplay) { messageDisplay.textContent = goalMessage; messageDisplay.classList.add('show', 'goal-celebration'); messageDisplay.style.display = 'block'; }
+            gamePaused = true; 
+            setTimeout(() => { if (isGameRunning) { resetForKickOff(false); hideMessage(); gamePaused = false; } }, 3000); 
+        }
+        function resetForKickOff(isNewGame) { /* ... unchanged ... */
+            if (isNewGame) { g_player1.score = 0; g_player2.score = 0; updateScores(); }
+            const playerY = PLAYER_Y_OFFSET; 
+            if (gameMeshes.player1) gameMeshes.player1.position.set(PITCH_WIDTH_3D * 0.1, playerY, PITCH_LENGTH_3D * 0.05);
+            if (gameMeshes.player2) gameMeshes.player2.position.set(-PITCH_WIDTH_3D * 0.1, playerY, -PITCH_LENGTH_3D * 0.05);
+            if (gameMeshes.gk1) gameMeshes.gk1.position.set(0, playerY, PITCH_LENGTH_3D / 2 - GOAL_DEPTH_3D * 1.5);
+            if (gameMeshes.gk2) gameMeshes.gk2.position.set(0, playerY, -PITCH_LENGTH_3D / 2 + GOAL_DEPTH_3D * 1.5);
+            if (gameMeshes.ball) { gameMeshes.ball.position.set(0, BALL_RADIUS_3D, 0); ballPhysics.velocity.set(0,0,0); ballPhysics.controlledBy = null; g_player1.hasBall = false; }
+            if (gameMeshes.player1) gameMeshes.player1.rotation.y = 0; 
+            if (gameMeshes.player2) gameMeshes.player2.rotation.y = Math.PI;  
+            if (gameMeshes.gk1) gameMeshes.gk1.rotation.y = Math.PI; 
+            if (gameMeshes.gk2) gameMeshes.gk2.rotation.y = 0;
+        }
+        function updatePlayerPositions(deltaTime) { /* ... unchanged ... */
+            if (!g_player1.mesh || !isGameRunning || gamePaused) return; 
+            const player = g_player1; const playerMesh = player.mesh;
+            if (player.isSprinting) { player.sprintTimer -= deltaTime; if (player.sprintTimer <= 0) { player.isSprinting = false; player.currentSpeed = PLAYER_NORMAL_SPEED; } }
+            let inputX = joystickInput.x + (keyboardInput.right - keyboardInput.left); let inputY = joystickInput.y + (keyboardInput.back - keyboardInput.forward); 
+            inputX = Math.max(-1, Math.min(1, inputX)); inputY = Math.max(-1, Math.min(1, inputY));
+            if (keyboardInput.kick && !player.kickProcessedThisFrame) { handleKickOrSprint(); player.kickProcessedThisFrame = true; }
+            if (!keyboardInput.kick) player.kickProcessedThisFrame = false;
+            if (inputX !== 0 || inputY !== 0) {
+                const cameraDirection = new THREE.Vector3(); camera.getWorldDirection(cameraDirection); const angle = Math.atan2(cameraDirection.x, cameraDirection.z);
+                const moveDirection = new THREE.Vector3(inputX, 0, -inputY); moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle); moveDirection.normalize();
+                const velocity = moveDirection.multiplyScalar(player.currentSpeed * deltaTime); playerMesh.position.add(velocity);
+                const targetAngle = Math.atan2(moveDirection.x, moveDirection.z); const currentAngle = playerMesh.rotation.y;
+                let angleDiff = targetAngle - currentAngle; while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI; while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                playerMesh.rotation.y += angleDiff * 0.2; 
+                if (player.hasBall && gameMeshes.ball) {
+                    const ballOffset = new THREE.Vector3(0,0, PLAYER_BODY_RADIUS_BOTTOM_3D + BALL_RADIUS_3D + 0.05 * METER_TO_3D_UNIT); 
+                    ballOffset.applyQuaternion(playerMesh.quaternion); gameMeshes.ball.position.copy(playerMesh.position).add(ballOffset);
+                    gameMeshes.ball.position.y = BALL_RADIUS_3D; ballPhysics.velocity.set(0,0,0); 
+                }
+            }
+            const halfPitchW = PITCH_WIDTH_3D / 2 - PLAYER_BODY_RADIUS_BOTTOM_3D; const halfPitchL = PITCH_LENGTH_3D / 2 - PLAYER_BODY_RADIUS_BOTTOM_3D;
+            playerMesh.position.x = Math.max(-halfPitchW, Math.min(halfPitchW, playerMesh.position.x)); playerMesh.position.z = Math.max(-halfPitchL, Math.min(halfPitchL, playerMesh.position.z));
+            playerMesh.position.y = PLAYER_Y_OFFSET; 
+        }
+        function updateBallPhysics(deltaTime) { /* ... unchanged ... */
+            if (!gameMeshes.ball || !isGameRunning || gamePaused) return;
+            const ball = gameMeshes.ball; const player = g_player1; 
+            if (!player.hasBall) { 
+                const gravity = 9.81 * METER_TO_3D_UNIT * 0.3; 
+                if (ball.position.y > BALL_RADIUS_3D) ballPhysics.velocity.y -= gravity * deltaTime;
+                ball.position.addScaledVector(ballPhysics.velocity, deltaTime);
+                ballPhysics.velocity.x *= ballPhysics.friction; ballPhysics.velocity.z *= ballPhysics.friction;
+                if (ball.position.y <= BALL_RADIUS_3D) ballPhysics.velocity.y *= ballPhysics.friction * 0.9; 
+                if (ball.position.y < BALL_RADIUS_3D) {
+                    ball.position.y = BALL_RADIUS_3D;
+                    if (Math.abs(ballPhysics.velocity.y) > 0.2 * METER_TO_3D_UNIT) { ballPhysics.velocity.y *= -0.5; playSoundEffect('ballBounce'); } 
+                    else ballPhysics.velocity.y = 0;
+                }
+                const halfPitchW_ball = PITCH_WIDTH_3D / 2 - BALL_RADIUS_3D; const halfPitchL_ball = PITCH_LENGTH_3D / 2 - BALL_RADIUS_3D;
+                if (Math.abs(ball.position.x) > halfPitchW_ball) { ball.position.x = Math.sign(ball.position.x) * halfPitchW_ball; ballPhysics.velocity.x *= -0.7; playSoundEffect('ballBounce'); }
+                if (Math.abs(ball.position.z) > halfPitchL_ball) { if (!checkGoal()) { ball.position.z = Math.sign(ball.position.z) * halfPitchL_ball; ballPhysics.velocity.z *= -0.7; playSoundEffect('ballBounce'); } }
+                if (ballPhysics.velocity.lengthSq() < (0.05 * METER_TO_3D_UNIT)**2 ) ballPhysics.velocity.set(0,0,0);
+                if (g_player1.mesh) { 
+                    const distanceToP1 = ball.position.distanceTo(g_player1.mesh.position);
+                    const controlRange = (PLAYER_BODY_RADIUS_BOTTOM_3D + BALL_RADIUS_3D) * 1.2; 
+                    if (distanceToP1 < controlRange && ballPhysics.velocity.lengthSq() < (PLAYER_NORMAL_SPEED * 0.5)**2) { g_player1.hasBall = true; ballPhysics.controlledBy = g_player1; }
+                }
+            }
+        }
+        function updateCamera(deltaTime) { /* ... unchanged ... */
+            if (!camera || !g_player1.mesh) return;
+            const playerPos = g_player1.mesh.position;
+            let targetCamPos = new THREE.Vector3(); const baseOffset = new THREE.Vector3(0, PITCH_WIDTH_3D * 0.45, -PITCH_LENGTH_3D * 0.30); 
+            targetCamPos.copy(playerPos).add(baseOffset);
+            let lookAtTarget = new THREE.Vector3().copy(playerPos); lookAtTarget.y += PLAYER_Y_OFFSET * 0.5; 
+            camera.position.lerp(targetCamPos, 0.08); camera.lookAt(lookAtTarget);
+        }
+        function checkGoal() { /* ... unchanged ... */
+            if (!gameMeshes.ball || gamePaused) return false;
+            const ballPos = gameMeshes.ball.position; const goalLineZ_P1 = PITCH_LENGTH_3D / 2; const goalLineZ_P2 = -PITCH_LENGTH_3D / 2; 
+            const halfGoalWidth = GOAL_WIDTH_3D / 2 - BALL_RADIUS_3D; 
+            if (ballPos.z > goalLineZ_P1 && ballPos.z < goalLineZ_P1 + GOAL_DEPTH_3D * 0.8 && Math.abs(ballPos.x) < halfGoalWidth && ballPos.y < GOAL_HEIGHT_3D - BALL_RADIUS_3D) { goalScored(1); return true; }
+            if (ballPos.z < goalLineZ_P2 && ballPos.z > goalLineZ_P2 - GOAL_DEPTH_3D * 0.8 && Math.abs(ballPos.x) < halfGoalWidth && ballPos.y < GOAL_HEIGHT_3D - BALL_RADIUS_3D) { goalScored(2); return true; }
+            return false;
+        }
+        function updateTimer(deltaTime) { /* ... unchanged ... */ if (!isGameRunning || gamePaused) return; timeLeft -= deltaTime; updateTimerDisplay(); if (timeLeft <= 0) endGame(); }
+        function endGame() { /* ... unchanged ... */
+            isGameRunning = false; gamePaused = true; playSoundEffect('whistleLong');
+            let endMessage = "Full Time! ";
+            if (g_player1.score > g_player2.score) endMessage += `${g_player1.teamName} wins!`;
+            else if (g_player2.score > g_player1.score) endMessage += `${g_player2.teamName} wins!`;
+            else endMessage += "It's a draw!";
+            showMessage(endMessage, false); console.log("Game Over:", endMessage);
+        }
+
+        let lastTime = 0;
+        let frameCount = 0; // For animate loop logging
+        function animate(currentTime) {
+            if (!isGameRunning && !gamePaused && timeLeft <=0) return;
+            if (!renderer || !scene || !camera) { console.error("Render components not ready, stopping animation."); return; }
+
+            // console.log(`Animating frame: ${frameCount++}`); // Check if animate is called
+
+            gameLoopId = requestAnimationFrame(animate);
+            
+            const now = performance.now();
+            const deltaTime = Math.min(0.05, (now - (lastTime || now)) / 1000); 
+            lastTime = now;
+
+            if (isGameRunning && !gamePaused) {
+                updatePlayerPositions(deltaTime);
+                updateBallPhysics(deltaTime); 
+                updateTimer(deltaTime); 
+            }
+            
+            updateCamera(deltaTime); 
+
+            try {
+                renderer.render(scene, camera);
+            } catch (e) {
+                console.error("Error during render:", e);
+                cancelAnimationFrame(gameLoopId); // Stop animation loop on critical render error
+            }
+        }
+
+        console.log("Script execution finished initial setup.");
     </script>
 </body>
 </html>
+
